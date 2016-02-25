@@ -42,7 +42,7 @@ We'll start by modeling this choice as a race between these two independent moda
 
 (2) Each modality has a drift rate that determines how quickly activation accumulates over time. These drift rates are modeled as draws from a $Normal(\mu,\sigma)$. We might assume that these drift rates vary as a function of things like how well known the lexical item is, how difficult the word form is to produce.
 
-(3) Accumulation proceeds until the information reaches a threshold ($b$) in some modality, at which time a response is produced. I set the thresholds to be the median conversational response time estimated by Rohde & Frank (2014) for a corpus of 12- and 18-month-olds and their parents.
+(3) Accumulation proceeds until the information reaches a threshold ($b$) in some modality, at which time a response is produced. I set the thresholds to be the median conversational response time estimated by Frank, Lewis, and MacDonald's (under review) analysis of the Fernald and Morikawa (1993) corpus of 12- and 18-month-olds and their parents.
 
 <div style="width:400px; text-align:center; margin:auto">![LBA model](figures/lba_mod.png) 
 
@@ -68,7 +68,7 @@ sd_gesture = .2 #gestures are hard but consistent
 
 # Fit distribution
 r_lba <- rlba_norm(1e4, A, b, t0, c(mean_word, mean_gesture), c(sd_word, sd_gesture)) %>%
-  mutate(response = factor(response, labels = c("word", "gesture")))
+  mutate(response = factor(response, levels = c(2,1), labels = c("gesture", "word")))
 
 #compute summary
 summary_lba <- r_lba %>%
@@ -102,7 +102,7 @@ rate_word_data <- data.frame(rate = rate_word, word = 1:1000) %>%
   mutate(rate = ifelse(rate == 0, NA, rate))
 
 ggplot(rate_word_data, aes(x = word, y = rate)) +
-  geom_point(size = 1, color = "#e41a1c") +
+  geom_point(size = .5, color = "#377eb8") +
   theme_bw(base_size = 16) +
   theme(panel.grid = element_blank(), legend.position = "none",
         axis.title.x = element_text(vjust=-.5), axis.title.y = element_text(vjust=1)) +
@@ -119,7 +119,7 @@ r_child <- lapply(rate_word, function(rate) rlba_norm(100, A, b, t0,
                                                       c(rate, mean_gesture),
                                                       c(sd_word_2, sd_gesture))) %>%
   bind_rows() %>%
-  mutate(response = factor(response, labels = c("word", "gesture")))
+  mutate(response = factor(response, levels = c(2,1), labels = c("gesture", "word")))
 
 #compute summary
 summary_child <- r_child %>%
@@ -187,7 +187,7 @@ loaded_subjs <- lapply(subjs, load_subj) %>%
   bind_rows(.id = "subj")
 
 # Show the first 20 rows of the new data frame
-kable(head(loaded_subjs, 20))
+kable(loaded_subjs[51:70,])
 ```
 
 Now let's try our first analysis: Which referents come out as words, which come out as gestures?
@@ -221,6 +221,7 @@ count_productions <- function(this_obj) {
     group_by(subj, person) %>%
     summarise(gesture = sum(obj == this_obj),
               word = sum(str_detect(present_obj, this_obj) > 0)) %>%
+    mutate(both = word & gesture) %>%
     mutate(obj = this_obj)
 }
 
@@ -228,8 +229,9 @@ count_productions <- function(this_obj) {
 all_productions <- lapply(all_objs, count_productions) %>%
   bind_rows() %>%
   group_by(person, obj) %>%
-  summarise_each(funs(sum), gesture, word) %>%
-  gather(modality, count, gesture, word)
+  summarise_each(funs(sum), gesture, word, both) %>%
+  gather(modality, count, gesture, word, both) %>%
+  mutate(modality = factor(modality, levels = c("gesture", "word", "both")))
 
 # Find all objects produced at least once across all participants, arrange in 
 # descending order
