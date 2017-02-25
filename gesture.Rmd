@@ -334,6 +334,20 @@ ggplot(referent_counts_ordered, aes(x = referent, y = log(n+1), fill = modality)
   scale_x_discrete(name = "Referent") +
   scale_y_continuous(name = "Log Production Frequency") +
   scale_fill_brewer(palette = "Set1")
+
+all_modality_counts <- referent_counts_ordered %>%
+  distinct(referent, total_n) %>%
+  arrange(desc(total_n)) %>%
+  mutate(rank = 1:nrow(.))
+
+quartz(width = 6, height = 4)
+ggplot(all_modality_counts, aes(x = rank, y = total_n)) + 
+  geom_point(size = .25, color = "darkred") + 
+  theme_bw(base_size = 18) +
+  scale_x_continuous(name = "Referent rank frequency") +
+  scale_y_continuous(name = "Referent frequency") +
+  theme(panel.grid = element_blank(), 
+        axis.title.x = element_text(vjust=-.5), axis.title.y = element_text(vjust=1)) 
 ```
 
 We see some evidence that gesture is distributed differently for children and adults. Children appear to show the predicted pattern (more gesture for rarer words), adults do not. Let's test this statistically.

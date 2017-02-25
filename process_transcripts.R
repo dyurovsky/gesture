@@ -1,7 +1,5 @@
 library(dplyr)
 library(tidyr)
-library(data.table)
-library(magrittr)
 library(readr)
 library(langcog)
 library(purrr)
@@ -12,77 +10,72 @@ library(stringr)
 library(zoo)
 
 # Data from two children at 18-month and 24 mo
-files <- list.files("raw_data/", "*.tsv")
+#files <- list.files("raw_data/", "*.tsv")
+files <- list.files("ldp_data/", "*.csv")
 
 # Some regular expressions for cleaning up speech to get out the intended referents
 clean_string <- function(string) {gsub("[^[:alnum:] /']", "", string)}
-split_string <- function(string) {strsplit(string, " +")}
 
 # Main subject loading function
 load_subj <- function(file) {
-
-  splits <- strsplit(file,"\\.")[[1]]
+  
+  splits <- str_split(file, "[_\\.]") %>% unlist()
+  
   subj_name <- splits[1]
   subj_session <- splits[2]
-
-  # Read the raw .tsv file
-  subj <- suppressWarnings(fread(paste0("raw_data/",file), sep = "\t",
-                                 data.table = F))
-
-  # Convert ids to integers and time to time in minutes
-  subj_clean <- subj %>%
-    mutate(id = 1:n(),
-           time = (period_to_seconds(hms(time)))/60)
+  
+  subj <- suppressMessages(read_csv(paste0("ldp_data/", file),
+                                    col_types = cols(
+                                      time = col_character()))) %>%
+    select(-line) %>%
+    mutate(line = 1:n()) %>%
+    as_data_frame()
 
   # Fix a timing error where the hour-unit did not track correctly
-  if(is.na(subj_clean[1,"time"]))
-    subj_clean[1,"time"] <- 0
+  # if(is.na(subj_clean[1,"time"]))
+  #   subj_clean[1,"time"] <- 0
 
   # Do a bunch of munging to get the data in a tidier format
-  subj_clean %>%
-    mutate(time = na.approx(time, na.rm = F),
-           time_fix = time < cummax(time),
-           time = ifelse(time_fix, time + 60, time)) %>% # Interpolate time
-    gather(type, value, p_utts:c_gs_rel) %>%
+  
+  tmp <- subj %>%
+    gather(type, value, p_chat:c_gs_rel) %>%
     separate(type, c("person", "type"), extra = "merge") %>%
     mutate(person = ifelse(person == "c", "child", "parent")) %>%
-    filter(type %in% c("utts", "obj", "gloss", "form", "gs_rel")) %>%
+    filter(type %in% c("chat", "obj", "gloss", "form", "gs_rel")) %>%
     spread(type, value) %>%
-    select(-time_fix) %>%
-    mutate_each(funs(clean_string), utts, form, gloss, obj) %>%
-    filter((nchar(utts) + nchar(obj) + nchar(gloss) + nchar(form)) > 0) %>%
-    mutate(subj = subj_name, session = subj_session)
+    filter(!is.na(chat) | !is.na(obj) | !is.na(gloss) | !is.na(form) |
+             !is.na(context)) %>%
+    mutate(subj = subj_name, session = subj_session) %>%
+    arrange(line)
 }
 
 # Load data
 loaded_subjs <- lapply(files, load_subj) %>%
-  bind_rows()
-
-#Recode gestures to be English readable
-code_gesture <- function(gesture) {
-  if(gesture == "") "None"
-  else if(gesture == "ADD") "Add"
-  else if(gesture == "X") "Only Gesture"
-  else if(gesture == "RF") "Reinforce"
-  else if(gesture == "FA") "Add"
-  else if(gesture == "DA") "Disambiguate"
-  else if(gesture == "ELAB") "Elaborate"
-  else if(gesture == "UC") "Unclear"
-  else if(gesture == "E") "Emphasis"
-  else if(gesture == "MS") "Meaningless Sound"
-}
+  bind_rows() %>%
+  as_data_frame()
 
 coded_subjs <- loaded_subjs %>%
   mutate(gs_rel = sub("[.;( ].*", "", gs_rel)) %>%
-  rowwise() %>%
-  mutate(gs_rel = code_gesture(gs_rel)) %>%
-  select(subj, session, time, person, utts, form, gloss, obj, gs_rel)
+  mutate(gs_rel = if_else(gs_rel == "", "empty", gs_rel)) %>%
+  mutate(gs_rel = recode(gs_rel, 
+                         "empty" = "None",
+                         "ADD" = "Add",
+                         "X" = "Only Gesture",
+                         "RF" = "Reinforce",
+                         "FA" = "Add",
+                         "DA" = "Disambiguate",
+                         "ELAB" = "Elaborate",
+                         "UC" = "Unclear",
+                         "E" = "Emphasis",
+                         "MS" = "Meaningless Sound")) %>%
+  select(subj, session, time, person, chat, form, gloss, obj, gs_rel, context) %>%
+  mutate_each(funs(if_else(is.na(.), "", .)),
+              time, chat, form, gloss, obj, gs_rel, context)
 
 # Show the 20 rows of the new data frame
-kable(coded_subjs[51:70,])
+coded_subjs[51:70,]
 
 split_subjs <- coded_subjs %>%
   mutate(spoken_obj = "", gestured_obj = "", referent = "", comments = "") %>%
   split(paste(.$subj, .$session)) %>%
-  map(function(df) write_csv(df, paste0("new_data/", df[1,"subj"], "_", 
-                                        df[1,"session"], ".csv")))
+  walk(~write_csv(.,paste0("to_code_data/", .$subj[1], "_", .$session[1], ".csv")))
