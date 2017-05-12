@@ -1,0 +1,228 @@
+---
+title: Speech/gesture tradeoffs in natural interactions
+author: Dan Yurovsky, Maddie Meyers, Nicole Burke, Susan Goldin-Meadow, and Amanda Woodward
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: false
+    number_sections: false
+    theme: lumen
+    toc_float: false
+    code_folding: hide
+---
+
+```{r setup, include = FALSE}
+# load packages
+library(knitr)
+library(tidyverse)
+library(langcog)
+library(stringr) 
+library(lme4)
+library(directlabels)
+library(DT)
+library(broom)
+
+opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
+               error = FALSE, cache = TRUE, tidy = FALSE)
+
+theme_dy <- function(base_size = 14) 
+{
+  theme_bw() +   
+  ggplot2::`%+replace%`(ggplot2::theme_bw(base_size = base_size),
+                          ggplot2::theme(panel.grid = ggplot2::element_blank(), 
+        legend.position = "none"))
+}
+
+theme_set(theme_dy())
+```
+
+## R Markdown
+
+Load in coded data and show how many children we have at each age
+```{r load_data}
+files <-list.files("ldp_data/coded_data/", 
+                   "*.csv", full.names = TRUE)
+
+loaded_subjs <- map(files, read_csv) %>%
+  bind_rows() %>%
+  mutate(age = 10+session*4) %>%
+  group_by(subj, age) %>%
+  mutate(time = 1:n()) %>%
+  select(time, subj, age, person, spoken_obj, gestured_obj, referent) 
+
+demos <- loaded_subjs %>%
+  select(subj,age) %>%
+  distinct(subj,age, .keep_all = TRUE) %>%
+  group_by(age) %>%
+  summarise(n = n())
+  
+datatable(demos, rownames = FALSE, options = list(searching = FALSE), width = 300)
+```
+
+Let's look at the referents first
+
+```{r referent_freqs}
+
+# Compute the frequency of each distinct referent
+referents <- loaded_subjs %>%
+  ungroup() %>%
+  select(referent) %>%
+  filter(!is.na(referent)) %>%
+  map(~str_split(string = ., pattern = ";")) %>% #split multiple-referents
+  unlist() %>%
+  map(str_trim) %>% # trim white space
+  unlist() %>%
+  data_frame(referent = .) %>%
+  group_by(referent) %>%
+  summarise(freq = n()) %>%
+  arrange(desc(freq)) %>%
+  mutate(rank = 1:nrow(.)) %>%
+  select(rank,referent, freq)
+
+datatable(referents, rownames = FALSE, width = 600)
+```
+
+Plot referent frequences in normal and log-log scale
+```{r ref_plots, fig.width = 5, fig.height = 2.5}
+ggplot(referents, aes(x = rank, y = freq, group = 1)) + 
+  geom_point(size = .5) +
+  xlab("Rank Frequency") +
+  ylab("Frequency")
+
+
+ggplot(referents, aes(x = rank, y = freq, group = 1)) + 
+  geom_point(size = .5, color = "darkred") +
+  geom_smooth(method = "lm", se = FALSE, color = "black") +
+  scale_y_log10(name = "Log Frequency") +
+  scale_x_log10(name = "Log Rank Frequency") + 
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+```
+
+It looks like our referent frequency distribution is not actually well described by Zipf's law (yet?). There aren't enough low frequency referents in the tail. Let's try with just words:
+
+```{r spoken_referent_freqs}
+
+# Compute the frequency of each distinct referent
+spoken_referents <-loaded_subjs %>%
+  ungroup() %>%
+  filter(!is.na(spoken_obj), person == "parent") %>%
+  select(spoken_obj) %>%
+  map(~str_split(string = ., pattern = ";")) %>% #split multiple-referents
+  unlist() %>%
+  map(str_trim) %>% # trim white space
+  unlist() %>%
+  data_frame(referent = .) %>%
+  group_by(referent) %>%
+  summarise(freq = n()) %>%
+  arrange(desc(freq)) %>%
+  mutate(rank = 1:nrow(.)) %>%
+  select(rank,referent, freq)
+
+datatable(spoken_referents, rownames = FALSE, width = 600)
+```
+
+Plot referent frequences in normal and log-log scale
+
+```{r spoken_ref_plots, fig.width = 5, fig.height = 2.5}
+ggplot(spoken_referents, aes(x = rank, y = freq, group = 1)) + 
+  geom_point(size = .5) +
+  xlab("Rank Frequency") +
+  ylab("Frequency") +
+  theme()
+
+
+ggplot(spoken_referents, aes(x = rank, y = freq, group = 1)) + 
+  geom_point(size = .5, color = "darkred") +
+  geom_smooth(method = "lm", se = FALSE, color = "black") +
+  scale_y_log10(name = "Log Frequency") +
+  scale_x_log10(name = "Log Rank Frequency") + 
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+```
+
+Looks similar... Maybe things will look a bit better with more data coded? Interesting to think about why this isn't Zipfian. Maybe we should think about discourse topics?
+
+Ok, let's try the main analysis: Does frequency predict speech/gesture?
+
+```{r speech_gesture_freq}
+max_refs <- loaded_subjs %>%
+  ungroup() %>%
+  gather(ref_col, refs, spoken_obj, gestured_obj, referent) %>%
+  mutate(num_refs = str_count(refs,";")) %>%
+  summarise(num_refs = max(num_refs, na.rm = T)+1) %>%
+  as.integer()
+  
+ref_list <- sapply(1:max_refs,function(x) paste0("referent",x))
+
+spread_referents<- loaded_subjs %>%
+  separate_("referent", ref_list, sep = ";", fill = "right") %>%
+  gather_("number", "referent", ref_list) %>%
+  filter(!is.na(referent)) %>%
+  mutate(referent = str_trim(referent))
+
+coded_responses <- spread_referents %>%
+  mutate(spoken_obj = map(str_split(spoken_obj, ";"), str_trim),
+         gestured_obj = map(str_split(gestured_obj, ";"), str_trim)) %>%
+  rowwise() %>%
+  mutate(spoken = purrr::contains(spoken_obj[[1]], referent),
+         gestured = purrr::contains(gestured_obj[[1]], referent),
+         both = spoken & gestured) %>%
+  ungroup() %>%
+  mutate(modality = if_else(spoken & gestured, "both", 
+                            if_else(spoken, "speech", "gesture"))) %>%
+  select(time, subj, age, person, referent, modality) %>%
+  left_join(referents) %>%
+  mutate(freq_cut = cut(log(freq), 4))
+  
+modality_data <- coded_responses %>%
+  group_by(person, age, subj, freq_cut, rank, freq, referent, modality) %>%
+  summarise(n = n()) %>%
+  spread(modality, n, fill = 0)
+```
+
+```{r speech_gesture_plot, fig.width = 9, fig.height = 4}
+plotting_data <- coded_responses %>%
+  filter(modality != "both") %>%
+  group_by(person, age, subj, freq_cut, modality) %>%
+  summarise(n = n()) %>%
+  mutate(prob = n/sum(n)) %>%
+  group_by(person, age, modality, freq_cut) %>%
+  multi_boot_standard("prob")
+
+ggplot(plotting_data, aes(x = as.numeric(freq_cut), y = mean, color = modality,
+                          label = modality)) +
+  facet_grid(person ~ age) + 
+  geom_pointrange(aes(ymax = ci_upper, ymin = ci_lower), 
+                  position = position_dodge(.25)) + 
+  scale_color_brewer(palette = "Set1") +
+  geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
+  scale_x_continuous(limits = c(.5, 5.7),
+                     breaks = seq(1, 4),
+                     name = "Frequency Quartile") +
+  ylab("Production Probability")
+```
+
+Now lets fit some statistical models to this to see if the effects are robust
+
+```{r fit_models}
+tidy_table <- function(mermod) {
+  tidy(mermod) %>%
+    filter(group == "fixed") %>%
+    select(-group)
+}
+
+child_lm <- glmer(cbind(speech, gesture) ~ age * log(freq) + 
+                    (1|referent) + (1|subj), 
+      data = filter(modality_data, person == "child"),
+      family = "binomial")
+
+datatable(tidy_table(child_lm), rownames = FALSE, 
+          options = list(searching = FALSE), width = 400)
+
+parent_lm <- glmer(cbind(speech, gesture) ~ age + log(freq) + 
+                    (1|referent) + (1|subj), 
+      data = filter(modality_data, person == "parent"),
+      family = "binomial")
+
+datatable(tidy_table(parent_lm), rownames = FALSE, 
+          options = list(searching = FALSE), width = 400)
+```

@@ -2,6 +2,7 @@ library(dplyr)
 library(tidyr)
 library(purrr)
 library(readr)
+library(stringr)
 
 # Read in LDP data
 ldp <- src_sqlite("~/Documents/LDP/ldp.db")
