@@ -21,6 +21,7 @@ library(lme4)
 library(directlabels)
 library(DT)
 library(broom)
+library(data.table) 
 
 opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
                error = FALSE, cache = TRUE, tidy = FALSE)
@@ -43,12 +44,18 @@ Load in coded data and show how many children we have at each age
 files <-list.files("ldp_data/coded_data/", 
                    "*.csv", full.names = TRUE)
 
-loaded_subjs <- map(files, read_csv) %>%
+loaded_subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
   bind_rows() %>%
   mutate(age = 10+session*4) %>%
   group_by(subj, age) %>%
   mutate(time = 1:n()) %>%
-  select(time, subj, age, person, spoken_obj, gestured_obj, referent) 
+  select(time, subj, age, person, spoken_obj, gestured_obj, referent, gloss) 
+
+#this data set does not include give or take gestures
+no_give_subjs <- loaded_subjs %>%
+  mutate(give = str_detect(gloss, "give"),
+         take = str_detect(gloss, "take")) %>%
+  filter(!give, !take)
 
 demos <- loaded_subjs %>%
   select(subj,age) %>%
@@ -79,7 +86,65 @@ referents <- loaded_subjs %>%
   mutate(rank = 1:nrow(.)) %>%
   select(rank,referent, freq)
 
-datatable(referents, rownames = FALSE, width = 600)
+#sort referents alphabetically to try to find mistakes in data 
+abc_referents <- referents[order(referents$referent),]
+datatable(abc_referents)
+
+#edit the data to fix any referent errors 
+#####
+#
+
+referent_names<-datatable(referents, rownames = FALSE, width = 600)
+referent_names
+
+#subset of only child referents
+child_referents <- loaded_subjs %>%
+  filter(person=="child") %>%
+  ungroup() %>%
+  select(referent) %>%
+  filter(!is.na(referent)) %>%
+  map(~str_split(string = ., pattern = ";")) %>% #split multiple-referents
+  unlist() %>%
+  map(str_trim) %>% # trim white space
+  unlist() %>%
+  data_frame(referent = .) %>%
+  group_by(referent) %>%
+  summarise(freq = n()) %>%
+  arrange(desc(freq)) %>%
+  mutate(rank = 1:nrow(.)) %>%
+  select(rank,referent, freq)
+
+datatable(child_referents, rownames=FALSE, width=600)
+count (child_referents) #571 unique child referents
+
+parent_referents <- loaded_subjs %>%
+  filter(person=="parent") %>%
+  ungroup() %>%
+  select(referent) %>%
+  filter(!is.na(referent)) %>%
+  map(~str_split(string = ., pattern = ";")) %>% #split multiple-referents
+  unlist() %>%
+  map(str_trim) %>% # trim white space
+  unlist() %>%
+  data_frame(referent = .) %>%
+  group_by(referent) %>%
+  summarise(freq = n()) %>%
+  arrange(desc(freq)) %>%
+  mutate(rank = 1:nrow(.)) %>%
+  select(rank,referent, freq)
+?arrange
+#order(referent)
+datatable(parent_referents, rownames=FALSE, width=600)
+count(parent_referents) #1008 unique parent referents
+
+#it is interesting that there are parent referents that are not child referents, what are these? 
+#unique_child_referents<- loaded_subjs %>%
+ # filter(person)
+
+#maybe make a printout of referent that shows whether it was child or adult or both who said it!! how do this
+
+#compare the data sets and delete the referents that are the same between, include only those that are different
+
 ```
 
 Plot referent frequences in normal and log-log scale
@@ -91,6 +156,20 @@ ggplot(referents, aes(x = rank, y = freq, group = 1)) +
 
 
 ggplot(referents, aes(x = rank, y = freq, group = 1)) + 
+  geom_point(size = .5, color = "darkred") +
+  geom_smooth(method = "lm", se = FALSE, color = "black") +
+  scale_y_log10(name = "Log Frequency") +
+  scale_x_log10(name = "Log Rank Frequency") + 
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+```
+
+```{r childes_comparison}
+childes_freqs <- fread("ldp_data/coded_data/parentfreq.txt", sep = " ") %>%
+  rename(freq = V1, word = V2) %>%
+  mutate(rank = 1:nrow(.))
+
+
+ggplot(childes_freqs, aes(x = rank, y = freq, group = 1)) + 
   geom_point(size = .5, color = "darkred") +
   geom_smooth(method = "lm", se = FALSE, color = "black") +
   scale_y_log10(name = "Log Frequency") +
