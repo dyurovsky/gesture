@@ -1,0 +1,43 @@
+---
+title: "Fixing Gesture Data Mistakes"
+output: html_notebook
+---
+
+```{r establish referent changes}
+x1<-c("ahir", "ardvark", "at", "batteries", "bbug", "beans", "bicycle", "boo", "boo_boo", "brown_page", "butterly", "caker", "CD", "cerea", "chick", "chicken_nugget, french_fry", "chik", "chil", "chld", "chiristmas_tree", "cirle", "digger", "dump_truck", "eg", "fae", "fiit", "fire_engine", "garbgage", "girlg", "grandma", "hild", "hippo", "ice_crema", "jackbot", "jacker", "jack_box", "key, child", "motorcycyle", "mushrooom", "mustach", "noodel", "oowd", "orange)juice", "pajama", "pajams", "peah", "people", "platn", "play_dough", "pocekt", "potty", "rasin", "refriegerator", "scissor", "seleeve", "wc", "yellow_page")
+y1<-c("hair", "aardvark", " ","battery", "bug", "bean", "bike", "cut", "cut", "page", "butterfly", "cake", "cd", "cereal", "chicken", "chicken_nugget", "chicken", "child", "child", "christmas_tree", "circle", "digger_truck", "dumptruck", "egg", "face", "", "firetruck", "garbage", "girl", "grandmother", "child", "hippopotamus", "ice_cream", "jackpot", "jacket", "jackinthebox", "key", "motorcycle", "mushroom", "mustache", "noodle", "", "orange_juice", "pajamas", "pajamas", "pea", "person", "plate", "playdoh", "pocket", "toilet", "raisin", "refrigerator", "scissors", "sleeve","", "page")
+
+referent_changes<-data_frame(referent=x1, fix_referent=y1)
+```
+
+```{r fix referent changes}
+loaded_subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
+  bind_rows() %>%
+  mutate(rownum = 1:nrow(.))
+
+fixed_referents <- loaded_subjs %>%
+  filter(referent %in% referent_changes$referent) %>%
+  left_join(referent_changes) %>%
+  select(-referent) %>%
+  rename(referent = fix_referent) %>%
+  bind_rows(filter(loaded_subjs, !rownum %in% .$rownum)) %>%
+  arrange(rownum) %>%
+  select(-rownum)
+  
+cols <- names(fixed_referents) 
+
+arranged_referents <- fixed_referents %>%
+  select_(.dots = cols[c(1:(length(cols)-2), length(cols), length(cols)-1) ])
+
+split_refernts <- arranged_referents %>% split(paste(.$subj, .$session, sep = "_"))
+
+write_referents <- function(df) {
+  session <- df[1,"session"]
+  subj <- df[1, "subj"]
+  
+  write_csv(df, paste0("ldp_data/fixed_data/", subj, "_", session, ".csv"), na = "")
+}
+
+walk(split_refernts, write_referents)
+```
+

@@ -41,7 +41,7 @@ theme_set(theme_dy())
 
 Load in coded data and show how many children we have at each age
 ```{r load_data}
-files <-list.files("ldp_data/coded_data/", 
+files <-list.files("ldp_data/fixed_data/", 
                    "*.csv", full.names = TRUE)
 
 loaded_subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
@@ -50,12 +50,6 @@ loaded_subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
   group_by(subj, age) %>%
   mutate(time = 1:n()) %>%
   select(time, subj, age, person, spoken_obj, gestured_obj, referent, gloss) 
-
-#this data set does not include give or take gestures
-no_give_subjs <- loaded_subjs %>%
-  mutate(give = str_detect(gloss, "give"),
-         take = str_detect(gloss, "take")) %>%
-  filter(!give, !take)
 
 demos <- loaded_subjs %>%
   select(subj,age) %>%
@@ -86,55 +80,12 @@ referents <- loaded_subjs %>%
   mutate(rank = 1:nrow(.)) %>%
   select(rank,referent, freq)
 
-#sort referents alphabetically to try to find mistakes in data 
-abc_referents <- referents[order(referents$referent),]
-datatable(abc_referents, caption="Alphabetical List of Referents")
-
-#edit the data to fix any referent errors 
-#####
-#
-
 referent_names<-datatable(referents, rownames = FALSE, width = 600)
 referent_names
 
-#subset of only child referents
-child_referents <- loaded_subjs %>%
-  filter(person=="child") %>%
-  ungroup() %>%
-  select(referent) %>%
-  filter(!is.na(referent)) %>%
-  map(~str_split(string = ., pattern = ";")) %>% #split multiple-referents
-  unlist() %>%
-  map(str_trim) %>% # trim white space
-  unlist() %>%
-  data_frame(referent = .) %>%
-  group_by(referent) %>%
-  summarise(freq = n()) %>%
-  arrange(desc(freq)) %>%
-  mutate(rank = 1:nrow(.)) %>%
-  select(rank,referent, freq)
-
-datatable(child_referents, rownames=FALSE, width=600, caption="Child Referents")
-count (child_referents)
-
-parent_referents <- loaded_subjs %>%
-  filter(person=="parent") %>%
-  ungroup() %>%
-  select(referent) %>%
-  filter(!is.na(referent)) %>%
-  map(~str_split(string = ., pattern = ";")) %>% #split multiple-referents
-  unlist() %>%
-  map(str_trim) %>% # trim white space
-  unlist() %>%
-  data_frame(referent = .) %>%
-  group_by(referent) %>%
-  summarise(freq = n()) %>%
-  arrange(desc(freq)) %>%
-  mutate(rank = 1:nrow(.)) %>%
-  select(rank,referent, freq)
-
-datatable(parent_referents, rownames=FALSE, width=600, caption="Parent Referents")
-count(parent_referents) 
+#sort referents alphabetically to try to find mistakes in data 
+abc_referents <- referents[order(referents$referent),]
+datatable(abc_referents, caption="Alphabetical List of Referents")
 
 ```
 
@@ -169,27 +120,6 @@ ggplot(childes_freqs, aes(x = rank, y = freq, group = 1)) +
 ```
 
 It looks like our referent frequency distribution is not actually well described by Zipf's law (yet?). There aren't enough low frequency referents in the tail. Let's try with just words:
-
-```{r spoken_referent_freqs}
-
-# Compute the frequency of each distinct referent
-spoken_referents <-loaded_subjs %>%
-  ungroup() %>%
-  filter(!is.na(spoken_obj), person == "parent") %>%
-  select(spoken_obj) %>%
-  map(~str_split(string = ., pattern = ";")) %>% #split multiple-referents
-  unlist() %>%
-  map(str_trim) %>% # trim white space
-  unlist() %>%
-  data_frame(referent = .) %>%
-  group_by(referent) %>%
-  summarise(freq = n()) %>%
-  arrange(desc(freq)) %>%
-  mutate(rank = 1:nrow(.)) %>%
-  select(rank,referent, freq)
-
-datatable(spoken_referents, rownames = FALSE, width = 600, caption="Spoken Referents")
-```
 
 Plot referent frequences in normal and log-log scale
 
@@ -252,6 +182,7 @@ modality_data <- coded_responses %>%
 ```{r speech_gesture_plot, fig.width = 9, fig.height = 4}
 plotting_data <- coded_responses %>%
   filter(modality != "both") %>%
+  filter(referent != "mom") %>% #the data looks better when you remove mom (at least for child data)
   group_by(person, age, subj, freq_cut, modality) %>%
   summarise(n = n()) %>%
   mutate(prob = n/sum(n)) %>%
