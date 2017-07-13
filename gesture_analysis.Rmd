@@ -80,12 +80,13 @@ referents <- loaded_subjs %>%
   mutate(rank = 1:nrow(.)) %>%
   select(rank,referent, freq)
 
-referent_names<-datatable(referents, rownames = FALSE, width = 600)
+referent_names <- datatable(referents, rownames = FALSE, width = 600)
 referent_names
 
 #sort referents alphabetically to try to find mistakes in data 
 abc_referents <- referents[order(referents$referent),]
-datatable(abc_referents, caption="Alphabetical List of Referents")
+datatable(abc_referents, caption="Alphabetical List of Referents", 
+          rownames = FALSE, width = 600)
 
 ```
 
