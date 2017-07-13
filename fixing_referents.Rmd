@@ -12,23 +12,24 @@ library(tidyverse)
 #TOFIX: beans, brown_page, pajams, playdoh, yellow_page
 
 # Coding errors
-x1 <- c("mom; ahir", "ardvark", "dog; at", "batteries", "nose; bbug", "beans", 
-        "cow; boo", "boo_boo","brown_page", "butterly", "caker", "CD", "cerea", 
-        "chick", "chik", "chil", "chld", "chiristmas_tree; engine; train", 
-        "cirle", "eg", "fae", "garbgage", "girlg", "mom; hild", 
-        "chocolate; ice_crema", "candy; jackbot", "jacker", "motorcycyle", 
-        "mushrooom", "mustach", "noodel", "oowd", "orange)juice",
-        "peah", "people", "mom; platn", "refriegerator", "scissor", "arm; seleeve", "wc", 
-        "yellow_page")
+x1 <- c("mom; ahir", "ardvark", "dog; at", "batteries", "nose; bbug", 
+        "beans; broccoli", "cow; boo", "boo_boo", "butterly", "caker", "CD", 
+        "cerea", "chick", "chik", "chil", "chld", 
+        "chiristmas_tree; engine; train", "cirle", "eg", "fae", "garbgage", 
+        "girlg", "mom; hild", "chocolate; ice_crema", "candy; jackbot", 
+        "jacker", "motorcycyle", "mushrooom", "mustach", "noodel", "oowd", 
+        "orange)juice", "peah", "people", "mom; platn", "refriegerator",
+        "scissor", "arm; seleeve", "wc")
 
 # Fixed referents
-y1 <- c("mom; hair", "aardvark", "dog; cat","battery", "nose; bug", "bean", 
-        "cow; book", "cut", "page", "butterfly", "cake", "cd", "cereal", 
-        "chicken", "chicken", "child", "child", "christmas_tree; engine; train", 
-        "circle", "egg", "face", "garbage", "girl", "mom; child", 
-        "chocolate; ice_crema", "candy; jackbot", "jacket", "motorcycle", "mushroom",
-        "mustache", "noodle", "wood", "orange_juice", "peach", "person", "mom; plant", 
-        "refrigerator", "scissors", "arm, sleeve","wax", "page")
+y1 <- c("mom; hair", "aardvark", "dog; cat","battery", "nose; bug", 
+        "bean; broccoli", "cow; book", "cut", "butterfly", "cake", "cd", 
+        "cereal", "chicken", "chicken", "child", "child", 
+        "christmas_tree; engine; train", "circle", "egg", "face", "garbage",
+        "girl", "mom; child",  "chocolate; ice_crema", "candy; jackbot", 
+        "jacket", "motorcycle", "mushroom", "mustache", "noodle", "wood",
+        "orange_juice", "peach", "person", "mom; plant", "refrigerator", 
+        "scissors", "arm, sleeve","wax")
 
 referent_changes <- data_frame(referent=x1, fix_referent=y1)
 ```

@@ -180,10 +180,45 @@ modality_data <- coded_responses %>%
   spread(modality, n, fill = 0)
 ```
 
+
+Try making Frank et al. style Gleitman plots. It turns out we have too many different referents... Here are a few ways of collapsing the data to get a better sense for it
+```{r gleitman_plots}
+gleitman_data <- coded_responses %>%
+  filter(subj == 29, age == 22) %>%
+  mutate(order = as.numeric(as.factor(time))) %>%
+  filter(order > 150, order < 200)
+
+ref_freqs <- gleitman_data %>%
+  group_by(referent) %>%
+  summarise(n = n()) %>%
+  arrange(n)
+
+gleitman_sorted <- gleitman_data %>%
+  mutate(referent = factor(referent, levels = ref_freqs$referent))
+  
+  
+ggplot(aes(x = order, y = referent, fill = interaction(person, modality)),
+           data = gleitman_sorted) + 
+  geom_tile(color = "black") +
+  theme(legend.position = "bottom")
+
+
+discourse_data <- coded_responses %>%
+  filter(subj == 33, age == 22) %>%
+  mutate(order = as.numeric(as.factor(time))) %>%
+  filter(order > 0, order < 55) %>%
+  mutate(new_discourse = lag(referent) == referent)
+
+
+  
+ggplot(aes(x = order, y = person, fill = new_discourse), data = discourse_data) + 
+  geom_tile(color = "black") +
+  theme(legend.position = "bottom")
+```
+
 ```{r speech_gesture_plot, fig.width = 9, fig.height = 4}
 plotting_data <- coded_responses %>%
   filter(modality != "both") %>%
-  filter(referent != "mom") %>% #the data looks better when you remove mom (at least for child data)
   group_by(person, age, subj, freq_cut, modality) %>%
   summarise(n = n()) %>%
   mutate(prob = n/sum(n)) %>%
