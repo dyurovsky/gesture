@@ -1,0 +1,70 @@
+---
+title: "label_pointing"
+author: "Maddie Meyers"
+date: "7/13/2017"
+output: word_document
+---
+#want to look at frequency of parents using label pointing (modality=both) as a function of child's age and as a function of referent frequency
+#does frequency of label pointing stay the same over time? Or do parents use label pointing more for younger kids who know less words? Does label pointing increase for words that are less frequent?
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r subset data}
+parent_subjs<-coded_responses %>%
+  filter(person=="parent")%>%
+  arrange(desc(freq)) %>%
+  group_by(freq)
+
+special_subjs<-parent_subjs %>%
+  group_by(freq)%>%
+  summarise(prop_both=mean(modality=="both"),
+            prop_gesture=mean(modality=="gesture"),
+            prop_speech=mean(modality=="speech")) %>%
+  mutate(rank_2=rank(desc(freq))) %>%
+  gather("modality", proportion, prop_both:prop_speech)
+
+special_subjs2<-coded_responses %>%
+  group_by(person, freq)%>%
+  summarise(prop_both=mean(modality=="both"),
+            prop_gesture=mean(modality=="gesture"),
+            prop_speech=mean(modality=="speech")) %>%
+  mutate(rank_2=rank(desc(freq))) %>%
+  gather("modality", proportion, prop_both:prop_speech)
+
+```
+
+```{r plots}
+#plot of referent modality of parent by child's age
+ggplot(aes(x = age, fill = modality),
+           data = parent_subjs) + 
+  geom_bar(position="dodge")+
+  theme(legend.position = "bottom")
+
+#entire plot of referent modality count by referent rank 
+ggplot(aes(x = rank, fill=modality),
+           data = parent_subjs) + 
+  geom_bar(position="dodge") + coord_cartesian(xlim= ylim=c(0, 300)) +theme(legend.position="bottom")
+
+#plot of proportions for parent data across modalities and rank 
+ggplot(aes(x = rank_2, y=proportion),
+           data = special_subjs) + 
+  geom_bar(stat="identity") + coord_cartesian( ylim=c(0, 1))+
+  facet_wrap( ~ modality)+geom_smooth()
+
+#shows frequency of different modalities comparing parents and children
+ggplot(aes(x = modality, fill = person),
+           data = coded_responses) + 
+  geom_bar(position="dodge")+
+  theme(legend.position = "bottom")
+
+#plot of proportion of different modality based on person (parent or child)
+ggplot(aes(x = modality, y=proportion, fill = person),
+           data = special_subjs2 ) + 
+  geom_bar(position="dodge", stat="identity")+
+  theme(legend.position = "bottom")
+```
+
