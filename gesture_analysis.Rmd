@@ -21,7 +21,8 @@ library(lme4)
 library(directlabels)
 library(DT)
 library(broom)
-library(data.table) 
+library(data.table)
+library(ggplot2)
 
 opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
                error = FALSE, cache = TRUE, tidy = FALSE)
@@ -56,6 +57,7 @@ demos <- loaded_subjs %>%
   distinct(subj,age, .keep_all = TRUE) %>%
   group_by(age) %>%
   summarise(n = n())
+
   
 datatable(demos, rownames = FALSE, options = list(searching = FALSE), width = 300)
 ```
@@ -63,7 +65,6 @@ datatable(demos, rownames = FALSE, options = list(searching = FALSE), width = 30
 Let's look at the referents first
 
 ```{r referent_freqs}
-
 # Compute the frequency of each distinct referent
 referents <- loaded_subjs %>%
   ungroup() %>%
@@ -173,7 +174,7 @@ coded_responses <- spread_referents %>%
   select(time, subj, age, person, referent, modality) %>%
   left_join(referents) %>%
   mutate(freq_cut = cut(log(freq), 4))
-  
+
 modality_data <- coded_responses %>%
   group_by(person, age, subj, freq_cut, rank, freq, referent, modality) %>%
   summarise(n = n()) %>%
@@ -184,9 +185,11 @@ modality_data <- coded_responses %>%
 Try making Frank et al. style Gleitman plots. It turns out we have too many different referents... Here are a few ways of collapsing the data to get a better sense for it
 ```{r gleitman_plots}
 gleitman_data <- coded_responses %>%
-  filter(subj == 29, age == 22) %>%
+  #filter(subj == 29, age == 22) %>%
+  filter(subj==29) %>%
   mutate(order = as.numeric(as.factor(time))) %>%
-  filter(order > 150, order < 200)
+  filter(order > 100, order < 300, freq>200) 
+  
 
 ref_freqs <- gleitman_data %>%
   group_by(referent) %>%
@@ -196,24 +199,133 @@ ref_freqs <- gleitman_data %>%
 gleitman_sorted <- gleitman_data %>%
   mutate(referent = factor(referent, levels = ref_freqs$referent))
   
-  
+#plot of all the referent mentions with parent and child different modalities, sorted by frequency of referent for a specific subset  
 ggplot(aes(x = order, y = referent, fill = interaction(person, modality)),
            data = gleitman_sorted) + 
   geom_tile(color = "black") +
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom") +facet_wrap (~age)
 
 
 discourse_data <- coded_responses %>%
-  filter(subj == 33, age == 22) %>%
   mutate(order = as.numeric(as.factor(time))) %>%
-  filter(order > 0, order < 55) %>%
-  mutate(new_discourse = lag(referent) == referent)
+  filter(referent != "mom") %>%
+  filter(subj==29, age==22) %>%
+  filter(order > 25, order < 95) %>%
+  mutate(new_discourse = lag(referent) == referent)%>%
+  group_by(person,new_discourse, order, modality) %>%
+  summarize(count=n()) %>%
+  mutate(proportion=count/sum(count)) 
 
-
-  
+#plot showing tradeoff of discourse (need to choose individual subject, too much to look at overall)
 ggplot(aes(x = order, y = person, fill = new_discourse), data = discourse_data) + 
   geom_tile(color = "black") +
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom")+facet_wrap( ~ modality)
+
+
+```
+```{r "first" referent}
+#here, we want to see what modality the parent or child is most likely to use to mention a new referent where new=different from the last one 
+
+discourse_child_data <- coded_responses %>%
+  mutate(order = as.numeric(as.factor(time))) %>%
+  filter(referent != "mom") %>%
+  mutate(new_discourse = lag(referent) == referent)%>%
+  filter(person=="child") %>%
+  group_by(age, new_discourse, modality) %>%
+  summarize(count=n()) %>%
+  mutate(proportion=count/sum(count)) 
+
+discourse_parent_data <- coded_responses %>%
+  mutate(order = as.numeric(as.factor(time))) %>%
+  filter(referent != "mom") %>%
+  mutate(new_discourse = lag(referent) == referent)%>%
+  filter(person=="parent") %>%
+  group_by(age, new_discourse, modality) %>%
+  summarize(count=n()) %>%
+  mutate(proportion=count/sum(count)) 
+
+#plot of porportion based on modality and whether it was a new referent or not with age
+#child
+ggplot(aes(x = modality, y=proportion, fill = new_discourse),
+           data = discourse_child_data ) + 
+  geom_bar(position="dodge", stat="identity")+ 
+  theme(legend.position = "bottom") + facet_wrap (~ age)  
+
+#parent (what is the weird NA?)
+ggplot(aes(x = modality, y=proportion, fill = new_discourse),
+           data = discourse_parent_data ) + 
+  geom_bar(position="dodge", stat="identity")+ 
+  theme(legend.position = "bottom") + facet_wrap (~ age) 
+
+#plot of everything on one (harder to see)
+ggplot(discourse_child_data, aes(x = modality, y = proportion, color=new_discourse)) + 
+  facet_wrap(~ age) + 
+  geom_point()+geom_point(data=discourse_parent_data, size=3)+theme(legend.position="bottom")
+```
+
+```{r first referent}
+#we want to see the probability of modality/person referencing something for the first time, not just if it is the same or different from the last referent 
+
+first_data <- coded_responses %>%
+  group_by(subj, age, referent) %>%
+  slice(1) %>% #take first time it is referenced within the session
+  group_by(subj, age, person, modality) %>%
+  summarise(n = n()) %>%
+  group_by(age, subj, person) %>%
+  mutate(n = n/sum(n)) %>% #probability
+  group_by(age, person, modality) %>%
+  summarise(n = mean(n))
+
+#take out first 
+not_first_data <- coded_responses %>%
+  group_by(subj, age, referent) %>%
+  slice(2:nrow(.)) %>% #take first time it is referenced within the session
+  group_by(subj, age, person, modality) %>%
+  summarise(n = n()) %>%
+  group_by(age, subj, person) %>%
+  mutate(n = n/sum(n)) %>% #probability
+  group_by(age, person, modality) %>%
+  summarise(n = mean(n))
+
+#from this plot, we can see that for the children < 26mos, they are more likely to gesture to an object if it is the first utterance, and they are also more likely to both gesutre/speech to the object if it is the first utternace. THeya re less likely to use speech as the first reference. Are these relationships significant?
+ggplot(first_data, aes(x = age, y = n, color = modality)) + 
+  facet_wrap(~ person) + 
+  geom_point()+geom_point(data=not_first_data, size=3)
+
+```
+
+```{r transition matrix- WORK IN PROGRESS}
+#make probability matrix of transitions between parent speech, child speech, parent gesture, child gesture, parent both, child both (AKA transition matrix of interaction between person and modality) 
+
+#use order variable to show what modality it was at at each moment, and who was speaking at each moment
+#first want to set up matrix with the data the way we want it (order with/by person and modality)
+#next want to calculate the probability of transitioning from one person and one modality to the next and put that into a matrix 
+
+transition_responses<-coded_responses %>%
+  mutate(order = as.numeric(as.factor(time))) %>%
+  select(person, modality, order, referent)
+  #spread(key=order, value=referent, fill=NA)
+ # mutate(same_ref=lag(referent)==referent,
+         #same_mod=lag(modality)==modality,
+         #same_person=lag(person)==person,
+         #same_mod_same_ref=(lag(modality)==modality & lag(referent)==referent),
+         #same_mod_same_per=(lag(modality)==modality & lag(person)==person),
+         #same_everything=(lag(modality)==modality & lag(person)==person   &lag(referent)==referent))
+
+#start by doing a matrix where at each time/state, you have whether it was a parent or child speaking
+#start with separate person and modality data frames
+#then run the data frame 
+#eventually account for the times where it is independent transitions (ex. between children)
+#as.matrix, change row to col 
+dat<-data.frame(replicate(20,sample(c("A", "B", "C","D"), size = 100, replace=TRUE)))
+
+trans.matrix <- function(X, prob=T)
+{
+    tt <- table( c(X[-nrow(X),]), c(X[-1,]) )
+    if(prob) tt <- tt / colSums(tt)
+    tt
+}
+trans.matrix()
 ```
 
 ```{r speech_gesture_plot, fig.width = 9, fig.height = 4}
