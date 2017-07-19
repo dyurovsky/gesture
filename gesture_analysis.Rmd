@@ -49,7 +49,7 @@ loaded_subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
   mutate(age = 10+session*4) %>%
   group_by(subj, age) %>%
   mutate(time = 1:n()) %>%
-  select(time, subj, age, person, spoken_obj, gestured_obj, referent, gloss) 
+  select(time, subj, age, person, spoken_obj, gestured_obj, referent, gloss, chat) 
 
 demos <- loaded_subjs %>%
   select(subj,age) %>%
@@ -106,7 +106,7 @@ ggplot(referents, aes(x = rank, y = freq, group = 1)) +
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
 ```
 
-```{r childes_comparison}
+```{r childes_comparison, include=FALSE, eval= FALSE}
 childes_freqs <- fread("ldp_data/coded_data/parentfreq.txt", sep = " ") %>%
   rename(freq = V1, word = V2) %>%
   mutate(rank = 1:nrow(.))
@@ -154,7 +154,7 @@ max_refs <- loaded_subjs %>%
   
 ref_list <- sapply(1:max_refs,function(x) paste0("referent",x))
 
-spread_referents<- loaded_subjs %>%
+spread_referents <- loaded_subjs %>%
   separate_("referent", ref_list, sep = ";", fill = "right") %>%
   gather_("number", "referent", ref_list) %>%
   filter(!is.na(referent)) %>%
@@ -170,14 +170,34 @@ coded_responses <- spread_referents %>%
   ungroup() %>%
   mutate(modality = if_else(spoken & gestured, "both", 
                             if_else(spoken, "speech", "gesture"))) %>%
-  select(time, subj, age, person, referent, modality) %>%
+  select(time, subj, age, person, referent, modality, chat) %>%
   left_join(referents) %>%
   mutate(freq_cut = cut(log(freq), 4))
   
 modality_data <- coded_responses %>%
-  group_by(person, age, subj, freq_cut, rank, freq, referent, modality) %>%
+  group_by(person, age, subj, freq_cut, rank, freq, referent, modality, chat) %>%
   summarise(n = n()) %>%
   spread(modality, n, fill = 0)
+```
+
+Does parent/child production of reference in *both* modalities simultaneously changes with age and word frequency?
+
+```{r both_probabilities}
+both_data <- modality_data %>%
+  group_by(person, age, freq_cut) %>%
+  summarise(both = sum(both), gesture = sum(gesture), speech = sum(speech)) %>%
+  gather(modality, count, both, gesture, speech) %>%
+  group_by(person, freq_cut, age) %>%
+  mutate(count = count/sum(count)) %>%
+  group_by(person, freq_cut, modality) %>%
+  summarise(count = mean(count))
+
+ggplot(aes(x = freq_cut, y = count, color = modality, group = modality), 
+       data = both_data) + 
+  facet_wrap(~ person) + 
+  geom_point() + 
+  theme(legend.position = "right") + 
+  geom_smooth(se = FALSE)
 ```
 
 
@@ -262,4 +282,26 @@ parent_lm <- glmer(cbind(speech, gesture) ~ age + log(freq) +
 
 datatable(tidy_table(parent_lm), rownames = FALSE, 
           options = list(searching = FALSE), width = 400)
+```
+
+Let's also check whether production of *both* modalities simultaneously changes over development and frequency
+
+```{r both_model}
+
+child_both_lm <- glmer(cbind(both, speech + gesture) ~ age * log(freq) + 
+                    (1|referent) + (1|subj), 
+      data = filter(modality_data, person == "child"),
+      family = "binomial")
+
+datatable(tidy_table(child_both_lm), rownames = FALSE, 
+          options = list(searching = FALSE), width = 400)
+
+parent_both_lm <- glmer(cbind(both, speech + gesture) ~ age + log(freq) + 
+                    (1|referent) + (1|subj), 
+      data = filter(modality_data, person == "parent"),
+      family = "binomial")
+
+datatable(tidy_table(parent_both_lm), rownames = FALSE, 
+          options = list(searching = FALSE), width = 400)
+
 ```
