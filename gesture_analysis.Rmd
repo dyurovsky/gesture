@@ -171,7 +171,7 @@ coded_responses <- spread_referents %>%
   ungroup() %>%
   mutate(modality = if_else(spoken & gestured, "both", 
                             if_else(spoken, "speech", "gesture"))) %>%
-  select(time, subj, age, person, referent, modality, chat) %>%
+  select(time, subj, age, person, referent, modality, chat, gloss) %>%
   left_join(referents) %>%
   mutate(freq_cut = cut(log(freq), 4))
 
@@ -322,9 +322,64 @@ ggplot(first_data, aes(x = age, y = n, color = modality)) +
 #next want to calculate the probability of transitioning from one person and one modality to the next and put that into a matrix 
 
 transition_responses<-coded_responses %>%
-  mutate(order = as.numeric(as.factor(time))) %>%
-  select(person, modality, order, referent)
-  #spread(key=order, value=referent, fill=NA)
+  select(subj, age, person, time, referent, modality) %>%
+  filter(modality != "both") %>%
+  group_by(subj, age) %>%
+  mutate(same_person = person == lag(person), 
+         same_modality = modality == lag(modality), 
+         same_referent = referent == lag(referent)) %>%
+  group_by(age, person, modality, subj) %>%
+  #summarise_at(vars(same_person, same_modality, same_referent), funs(mean), na.rm = T) %>%
+  summarise_at(vars(same_person, same_modality, same_referent), funs(mean), na.rm = T) %>%
+  gather(measure, value, same_person, same_modality, same_referent) %>%
+  group_by(age, person, modality, measure) %>%
+  summarise_at(vars(value), funs(mean, sem))
+
+
+ggplot(transition_responses, aes(x = age, y = mean, color = person,
+                                 label = person)) + 
+  facet_grid(measure ~ modality) + 
+  geom_pointrange(aes(ymin = mean - sem, ymax = mean + sem), 
+                  position = position_dodge(.5)) + 
+  geom_line() + 
+  geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
+  scale_x_continuous(limits = c(13, 30))
+
+
+same_ref_transitions<-coded_responses %>%
+  select(subj, age, person, time, referent, modality) %>%
+  group_by(subj, age) %>%
+  mutate(same_person = person == lag(person), 
+         same_modality = modality == lag(modality), 
+         same_referent = referent == lag(referent)) %>%
+  filter(same_referent) %>%
+  group_by(age, person, modality, subj) %>%
+  #summarise_at(vars(same_person, same_modality, same_referent), funs(mean), na.rm = T) %>%
+  summarise_at(vars(same_person, same_modality), funs(mean), na.rm = T) %>%
+  gather(measure, value, same_person, same_modality) %>%
+  group_by(age, person, modality, measure) %>%
+  summarise_at(vars(value), funs(mean, sem))
+
+consecutive_gestures <- coded_responses %>%
+  select(subj, age, person, time, referent, modality, gloss, chat) %>%
+  mutate(same_person = person == lead(person), 
+         lead_modality = lead(modality), 
+         same_referent = referent == lead(referent)) %>%
+  filter(person == "child", same_person, lead_modality == "gesture")
+
+  
+  
+ggplot(same_ref_transitions, aes(x = age, y = mean, color = person,
+                                 label = person)) + 
+  facet_grid(measure ~ modality) + 
+  geom_pointrange(aes(ymin = mean - sem, ymax = mean + sem), 
+                  position = position_dodge(.5)) + 
+  geom_line() + 
+  geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
+  scale_x_continuous(limits = c(13, 30))
+
+
+
  # mutate(same_ref=lag(referent)==referent,
          #same_mod=lag(modality)==modality,
          #same_person=lag(person)==person,
