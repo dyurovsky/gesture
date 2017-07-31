@@ -245,6 +245,42 @@ ggplot(aes(x = order, y = person, fill = new_discourse), data = discourse_data) 
 
 ```
 
+
+```{r ref_density}
+
+# Takes a data frame (grouped), a consecutive sample size (e.g. 10 rows), and a number of samples (e.g. 20 samples) and returns a sub-sampled dataframe with a new column "sample" that indicates the sample number
+
+split_df <- function(df, size, count) {
+ nrows <- df %>% 
+   summarise(n = n()) %>% 
+   ungroup() %>% 
+   select(n) %>% 
+   min
+  
+ num_splits <- floor(nrows / size)
+ 
+ split_list <- map(1:num_splits, function(n) (n-1)*size + 1:size) %>%
+   sample(., count)
+ 
+ 
+ samples <- map(split_list, function(n) df %>% slice(n))
+ 
+ sampled_df <- map(1:length(samples), 
+                   function(n) mutate(samples[[n]], sample = n)) %>%
+   bind_rows()
+}
+
+# try e.g. 
+tmp <- coded_responses %>%
+  group_by(subj, age) 
+
+sampled_df <- split_df(tmp, 16, 20)
+
+#only we want all of the rows in the original data, not coded responses
+
+
+```
+
 ```{r "first" referent}
 #here, we want to see what modality the parent or child is most likely to use to mention a new referent where new=different from the last one 
 
@@ -368,7 +404,33 @@ ggplot(child_lag, aes(x = age, y = mean, color = modality)) +
 
 ```
 
+
 ```{r modality/person transitions}
+#make probability matrix of transitions between parent speech, child speech, parent gesture, child gesture, parent both, child both (AKA transition matrix of interaction between person and modality) 
+
+transition_responses<-coded_responses %>%
+  select(subj, age, person, time, referent, modality) %>%
+  filter(modality != "both") %>%
+  group_by(subj, age) %>%
+  mutate(same_person = person == lag(person), 
+         same_modality = modality == lag(modality), 
+         same_referent = referent == lag(referent)) %>%
+  group_by(age, person, modality, subj) %>%
+  #summarise_at(vars(same_person, same_modality, same_referent), funs(mean), na.rm = T) %>%
+  summarise_at(vars(same_person, same_modality, same_referent), funs(mean), na.rm = T) %>%
+  gather(measure, value, same_person, same_modality, same_referent) %>%
+  group_by(age, person, modality, measure) %>%
+  summarise_at(vars(value), funs(mean, sem))
+
+
+ggplot(transition_responses, aes(x = age, y = mean, color = person,
+                                 label = person)) + 
+  facet_grid(measure ~ modality) + 
+  geom_pointrange(aes(ymin = mean - sem, ymax = mean + sem), 
+                  position = position_dodge(.5)) + 
+  geom_line() + 
+  geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
+  scale_x_continuous(limits = c(13, 30))
 
 same_ref_transitions<-coded_responses %>%
   select(subj, age, person, time, referent, modality) %>%
@@ -393,8 +455,6 @@ ggplot(same_ref_transitions, aes(x = age, y = mean, color = person,
   geom_line() + 
   geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
   scale_x_continuous(limits = c(13, 30))
-
-
 ```
 
 ```{r speech_gesture_plot, fig.width=9, fig.height=4}
