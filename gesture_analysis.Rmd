@@ -247,7 +247,6 @@ ggplot(aes(x = order, y = person, fill = new_discourse), data = discourse_data) 
 
 
 ```{r ref_density}
-
 # Takes a data frame (grouped), a consecutive sample size (e.g. 10 rows), and a number of samples (e.g. 20 samples) and returns a sub-sampled dataframe with a new column "sample" that indicates the sample number
 
 split_df <- function(df, size, count) {
@@ -270,55 +269,82 @@ split_df <- function(df, size, count) {
    bind_rows()
 }
 
-# try e.g. 
-tmp <- coded_responses %>%
+ref <- loaded_subjs %>%
   group_by(subj, age) 
 
-sampled_df <- split_df(tmp, 16, 20)
+sample_ref <- split_df(ref, 16, 20) %>%
+  mutate(spoken = (is.na(spoken_obj)==FALSE),
+         gestured = (is.na(gestured_obj)==FALSE),
+         both = spoken & gestured) %>%
+  mutate(modality = if_else(both==TRUE, "both",  
+                            if_else(spoken==TRUE, "speech", if_else(gestured==TRUE, "gesture", "")))) %>%
+  select(time, subj, age, sample, person, referent, modality, chat, gloss) 
 
-#only we want all of the rows in the original data, not coded responses
+sample_2_ref<-sample_ref %>%
+  group_by(subj, age, sample, person)  %>%
+  summarize(count=sum(is.na(referent)==FALSE)) %>%
+  group_by(subj, age, person) %>%
+  mutate(avg_ref = sum(count) / 20) 
 
 
+#shows number of referents across samples for each age
+ggplot(aes(x = age, y=count), data=sample_2_ref) + 
+  geom_bar(stat="identity")+ ylab("average referents per discourse")
+
+#shows average number of referents within samples--interesting that for older children, there are not more referents (maybe going more in depth on one? or more pronoun usage?)
+sample2_ref <- sample_2_ref %>%
+  filter(sample==1) %>%
+  group_by(person, age) %>%
+  mutate(avg_age_ref = sum(avg_ref) / 10) %>%
+  filter(subj==29) 
+
+ggplot(aes(x = age, y=avg_age_ref, fill=person), data=sample2_ref) + 
+  geom_bar(stat="identity", position="dodge")+ ylab("average referents per discourse") + theme(legend.position="bottom")
+
+#shows general plot of one sample instance of discourse, just to see what it looks like 
+sample3_ref<-sample_ref %>%
+  filter(sample== 6)
+
+ggplot(aes(x=time, y=referent, color=modality), data=sample3_ref) +geom_line()+facet_wrap(~age)+theme(legend.position="bottom")
+
+#now want to see how many referents are first referents? ***WORK IN PROGRESS*** 
+first_data <- coded_responses %>%
+  group_by(subj, age, referent) %>%
+  slice(1) %>% 
+  mutate(first = TRUE) 
+
+first_times <- first_data %>%
+  select(subj, age, time)
+
+first_ref <- sample_ref %>%
+  group_by(subj, age) %>%
+  filter(time %in% first_times$time)
+  
+
+View(first_times)
 ```
 
-```{r "first" referent}
-#here, we want to see what modality the parent or child is most likely to use to mention a new referent where new=different from the last one 
+```{r "mom"}
+mom_data<-coded_responses %>%
+  group_by(subj, age, modality) %>%
+  mutate(repeated= lag(referent),
+         future=lead(modality)) %>%
+  group_by(subj, age) %>%
+  filter(referent=="mom") %>%
+  filter(repeated=="mom"|repeated=="cat"|repeated=="dog"|repeated=="ball" | repeated=="baby" | repeated=="child") 
 
-discourse_child_data <- coded_responses %>%
-  mutate(order = as.numeric(as.factor(time))) %>%
-  filter(referent != "mom") %>%
-  mutate(new_discourse = lag(referent) == referent)%>%
-  filter(person=="child") %>%
-  group_by(age, new_discourse, modality) %>%
-  summarize(count=n()) %>%
-  mutate(proportion=count/sum(count)) 
 
-discourse_parent_data <- coded_responses %>%
-  mutate(order = as.numeric(as.factor(time))) %>%
-  filter(referent != "mom") %>%
-  mutate(new_discourse = lag(referent) == referent)%>%
-  filter(person=="parent") %>%
-  group_by(age, new_discourse, modality) %>%
-  summarize(count=n()) %>%
-  mutate(proportion=count/sum(count)) 
+ggplot(aes(x=future, fill=modality), data=mom_data) + theme(legend.position="bottom")+geom_bar()+facet_wrap(~person) #shows that there is a lot of child repetition of the word mom
 
-#plot of porportion based on modality and whether it was a new referent or not with age
-#child
-ggplot(aes(x = modality, y=proportion, fill = new_discourse),
-           data = discourse_child_data ) + 
-  geom_bar(position="dodge", stat="identity")+ 
-  theme(legend.position = "bottom") + facet_wrap (~ age)  
 
-#parent (what is the weird NA?)
-ggplot(aes(x = modality, y=proportion, fill = new_discourse),
-           data = discourse_parent_data ) + 
-  geom_bar(position="dodge", stat="identity")+ 
-  theme(legend.position = "bottom") + facet_wrap (~ age) 
+#how long are these instances (repetitions)? How do we capture just one instance of repeated mom? 
+mom_repeat<-matrix(nrow=nrow(coded_responses), ncol=ncol(coded_responses))
 
-#plot of everything on one (harder to see)
-ggplot(discourse_child_data, aes(x = modality, y = proportion, color=new_discourse)) + 
-  facet_wrap(~ age) + 
-  geom_point()+geom_point(data=discourse_parent_data, size=3)+theme(legend.position="bottom")
+for(i in 1: nrow(coded_responses)) {
+    if(repeated=referent="mom") {
+      
+    }
+ }
 ```
 
 ```{r first referent}
@@ -416,7 +442,6 @@ transition_responses<-coded_responses %>%
          same_modality = modality == lag(modality), 
          same_referent = referent == lag(referent)) %>%
   group_by(age, person, modality, subj) %>%
-  #summarise_at(vars(same_person, same_modality, same_referent), funs(mean), na.rm = T) %>%
   summarise_at(vars(same_person, same_modality, same_referent), funs(mean), na.rm = T) %>%
   gather(measure, value, same_person, same_modality, same_referent) %>%
   group_by(age, person, modality, measure) %>%
