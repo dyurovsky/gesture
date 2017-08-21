@@ -106,20 +106,15 @@ split_df <- function(df, size, count) {
 ref <- loaded_subjs %>%
   group_by(subj, age)
 
-#need to split multiple referents in the sample data  
-sample_ref <- split_df(ref, 16, 20) %>%
+#need to split multiple referents in the sample data(HOW)?
+
+sample_ref <- split_df(ref, 16, 30) %>%
   mutate(spoken = (is.na(spoken_obj)==FALSE),
          gestured = (is.na(gestured_obj)==FALSE),
          both = spoken & gestured) %>%
   mutate(modality = if_else(both==TRUE, "both",  
                             if_else(spoken==TRUE, "speech", if_else(gestured==TRUE, "gesture", "")))) %>%
   select(time2, time, subj, age, sample, person, referent, modality, chat, gloss) 
-
-#shows general (Gleitman) plot of one sample instance of discourse, just to see what it looks like 
-sample3_ref<-sample_ref %>%
-  filter(sample== 12)
-
-ggplot(aes(x=time, y=referent, color=modality), data=sample3_ref) +geom_line()+facet_wrap(~age)+theme(legend.position="bottom")
 
 #now want to see how many referents in the discourse are first referents and plot those averages 
 first_data <- coded_responses %>%
@@ -137,16 +132,17 @@ first_ref <- sample_ref %>%
   group_by(subj, age, sample, isFirst, person, modality) %>%
   summarise(count=sum(is.na(referent)==FALSE)) %>%
   group_by(isFirst, age, subj, person, modality) %>%
-  summarise(avg_ref = sum(count) / (20))
+  summarise(avg_ref = sum(count) / (30))
 
-ggplot(aes(x=age, y=(avg_ref/10), fill=isFirst), data=first_ref) + geom_bar(stat="identity")+ylab("average referents per discourse")+theme(legend.position="bottom")
+ggplot(aes(x=age, y=(avg_ref), fill=isFirst), data=first_ref) + geom_bar(stat="identity", position="dodge")+ylab("average referents per discourse")+theme(legend.position="bottom") + facet_wrap(~person)
 
-#add in person data 
-ggplot(first_ref, aes(x = age, y = (avg_ref/10), fill =  isFirst)) + 
-  facet_wrap(~ person) +  
-  geom_bar(stat="identity") +   
-  theme(legend.position= "bottom") + 
-  ylab("average referents per discourse") 
+#what about modality? How does this interact within the sample/number of referents within discourse?
+sample_modality <-first_ref %>%
+  filter(person=="child")
+
+#I don't think this tells us anything meaningful 
+ggplot(aes(x=age, y=avg_ref, fill=modality), data=sample_modality) +geom_bar(stat="identity", position="dodge")+ylab("average referents per discourse--child")+theme(legend.position="bottom")+facet_wrap(~isFirst)
+
 ```
 
 Comparisons to previous discourse analyses 
@@ -179,32 +175,64 @@ ggplot(aes(x = time, y = referent, fill =  interaction(person,modality)), data =
   theme(legend.position = "bottom")
 #finally, a gletiman plot that looks readable! 
 ```
-Mom as a unique referent
-```{r "mom"}
-#what we have here is a data set of all the times mom was referenced, with a variable saying what the referent was before this. We can use the time column to tell us if/how many times the referent "mom" was repeated by seeing how large the time steps are between references of mom 
-#granted, this is somewhat flawed because there may be other references between mom--if they are trying to get attention, the mom may say a different referent in between, so let's try going two lags back
-mom_repeated <-coded_responses %>%
-  mutate(last_ref=lag(referent),
-         last_utt=lag(interaction(person,modality)), 
-         last_last_ref=lag(last_ref),
-         ref=ifelse(referent=="mom", 1, 0),
-         fut_utt=lead(interaction(person, modality))) %>%
-  filter(person=="child") 
-#make proportions
-#really only interested in how the child uses "mom", not as much how the mother refers to herself
-  
-mom_prop<-coded_responses %>%
-  filter(person=="child") %>%
-  group_by(subj, age) %>%
-  summarise(prop= sum(as.integer(referent=="mom"))/sum(n())) 
 
-#when just looking at the plot of mom references across age for child, you see that there is a very sharp increase from 18 to 22 months--is this driving some of our other results? Is this difference significant? Ran a t-test and it was not significant (p=0.0885)
-ggplot(aes(x=age, y=(prop/10)), data=mom_prop)+geom_bar(stat="identity")+ylab("Proportion of mom referents by child")
+```{r discourse success}
+#discourse success=same referent in succession mentioned by different person (mom/child talking about same thing with concrete noun included)
+#try first without real discourse structure (all NAs are excluded) using coded_responses data. Also helps reduce probelms b/c pronoun-only sentences are excluded, though there may be multiple referent with one mentioned as pronoun issue 
 
-#ggplot(aes(x=age, fill=modality), data=mom_repeated) +geom_bar() #mostly speech, as expected 
+discourse_success<-coded_responses %>%
+  mutate(isFirst = ifelse(time2 %in% first_data$time2, "first","not first")) %>% 
+  mutate(success = ifelse(lag(person) != person & lag(referent)==referent, "success", ifelse(lag(person) != person & lag(referent) !=referent, "switch", ifelse(lag(referent)==referent, "repeat", "same_per_swtich")))) %>%
+  filter(is.na(success)==FALSE)
 
-#how do we prove that the word "mom" is being used to get attention, versus being more communicative? look at the modalities of what precedes it
-ggplot(aes(x=fut_utt), data=mom_repeated) +geom_bar()+facet_wrap(~ref)
-ggplot(aes(x=last_utt), data=mom_repeated) +geom_bar()+facet_wrap(~ref)
+#plot of discourse successes looks similar to plots of #of referents per age, which is interesting because you would think there would be most successful utterances for the oldest kids 
+ggplot(aes(x=age, fill=person), data=discourse_success)+geom_bar(position="dodge")+theme(legend.position="bottom")+facet_wrap(~success)+ggtitle("discourse type (individual or interaction) by referent stability (same or different)")
 
+#does parent discourse responsiveness stay constant over age? Or is it larger for small children? See proportion of successes over proportion of switches 
+discourse_prop<-discourse_success %>%
+  group_by(age, success, person) %>%
+  summarise(n=n()) %>%
+  mutate(prop= n/sum(n))
+
+ggplot(aes(x=age, y=prop, fill=person), data=discourse_prop)+geom_bar(stat= "identity", position="dodge")+theme(legend.position="bottom")+facet_wrap(~success)+ggtitle("discourse proportion between person")
+
+#shows what proportion of time parents or children are spending with each kind of discourse (be careful about interpreting)
+discourse_prop2<-discourse_success %>%
+  group_by(person, age, success) %>%
+  summarise(n=n()) %>%
+  mutate(prop= n/sum(n))
+
+ggplot(aes(x=age, y=prop, fill=success), data=discourse_prop2)+geom_bar(stat="identity", position="dodge")+theme(legend.position="bottom")+facet_wrap(~person)+ggtitle("proportion of time person spends using discourse type")
 ```
+
+```{r discourse first}
+#what happens when the referent is first introduced into the session? How does that change the effects we have seen
+#not sure if we find anything meaningful here
+first_success<-coded_responses %>%
+  mutate(isFirst = ifelse(time2 %in% first_data$time2, "first","not first")) %>% 
+  mutate(success = ifelse(lead(person) != person & lead(referent)==referent, "success", ifelse(lead(person) != person & lead(referent) !=referent, "switch", ifelse(lead(referent)==referent, "repeat", "same_per_swtich")))) %>%
+  filter(is.na(success)==FALSE) %>%
+  filter(isFirst=="first")
+
+not_first_success<-coded_responses %>%
+  mutate(isFirst = ifelse(time2 %in% first_data$time2, "first","not first")) %>% 
+  mutate(success = ifelse(lead(person) != person & lead(referent)==referent, "success", ifelse(lead(person) != person & lead(referent) !=referent, "switch", ifelse(lead(referent)==referent, "repeat", "same_per_swtich")))) %>%
+  filter(is.na(success)==FALSE) %>%
+  filter(isFirst=="not first")
+
+ggplot(aes(x=age, fill=person), data=first_success)+geom_bar(position="dodge")+theme(legend.position="bottom")+facet_wrap(~success)+ggtitle("discourse type (individual or interaction) by referent stability (same or different)", subtitle="first")
+ggplot(aes(x=age, fill=person), data=not_first_success)+geom_bar(position="dodge")+theme(legend.position="bottom")+facet_wrap(~success)+ggtitle("discourse type (individual or interaction) by referent stability (same or different)", subtitle="not first")
+```
+
+```{r discourse modality}
+#see if there is anything meaningful about modality here 
+
+#This is A LOT & hard to read, but might be interesting for the youngest kids only. Other ages it doesn't look like there is too much to garner from modality data (it seems pretty consistent)
+ggplot(aes(x=age, fill=interaction(modality,success)), data=discourse_success)+geom_bar( position="dodge")+theme(legend.position="bottom")+facet_wrap(~person)+ggtitle("success, modality, person interaction freq")
+
+smaller_data<-discourse_success %>%
+  filter(age==14)
+
+ggplot(aes(x=age, fill=interaction(modality,success)), data=smaller_data)+geom_bar( position="dodge")+theme(legend.position="bottom")+facet_wrap(~person)+ggtitle("14mos interaction")
+```
+

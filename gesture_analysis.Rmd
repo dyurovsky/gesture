@@ -85,12 +85,6 @@ referents <- loaded_subjs %>%
 
 referent_names <- datatable(referents, rownames = FALSE, width = 600)
 referent_names
-
-#sort referents alphabetically to try to find mistakes in data 
-abc_referents <- referents[order(referents$referent),]
-datatable(abc_referents, caption="Alphabetical List of Referents", 
-          rownames = FALSE, width = 600)
-
 ```
 
 Plot referent frequences in normal and log-log scale
@@ -198,73 +192,6 @@ modality_data <- coded_responses %>%
   spread(modality, n, fill = 0)
 ```
 
-Does parent/child production of reference in *both* modalities simultaneously changes with age and word frequency?
-
-```{r both_probabilities}
-both_data <- modality_data %>%
-  group_by(person, age, freq_cut) %>%
-  summarise(both = sum(both), gesture = sum(gesture), speech = sum(speech)) %>%
-  gather(modality, count, both, gesture, speech) %>%
-  group_by(person, freq_cut, age) %>%
-  mutate(count = count/sum(count)) %>%
-  group_by(person, freq_cut, modality) %>%
-  summarise(count = mean(count))
-
-ggplot(aes(x = freq_cut, y = count, color = modality, group = modality), 
-       data = both_data) + 
-  facet_wrap(~ person) + 
-  geom_point() + 
-  theme(legend.position = "right") + 
-  geom_smooth(se = FALSE)
-```
-
-```{r first referent- FIX MULTI BOOT STANDARD ERROR}
-#we want to see the probability of modality/person referencing something for the first time, not just if it is the same or different from the last referent 
-
-usage_data <- bind_rows(first_data, not_first_data) %>%
-  filter(freq>1) %>% #taking out referents that are only mentioned once changes nothing
-  group_by(subj, age, person, modality, first) %>%
-  summarise(n = n()) %>% 
-  group_by(age, subj, person, first) %>%
-  mutate(n = n/sum(n)) %>% #probability
-  group_by(age, person, modality, first) %>%
-  multi_boot_standard("n")  
-
-#from this plot, we can see that for the children < 26mos, they are more likely to gesture to an object if it is the first utterance versus not first utterance, and they are also more likely to both gesutre/speech to the object if it is the first utternace. They are less likely to use speech as the first reference. The confidence intervals show that these relationships are significant
-ggplot(usage_data, aes(x = age, y = mean, color = modality,
-                       linetype = first)) + 
-  facet_wrap(~ person) + 
-  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper), 
-                  size=.75, position = position_dodge(1),
-                  show.legend = FALSE)+
-  geom_line() +   
-  theme(legend.position= "bottom") + 
-  ylab("proportion of utterances") 
-
-
-#now we are looking at frequency and seeing what happens for first or not first referents across the frequency for what modality and what person, see that parents over time increase speech (especially for first referents?)
-usage_data_2 <- bind_rows(first_data, not_first_data) %>%
-  filter(freq>1) %>% #taking out referents that are only mentioned once changes nothing
-  group_by(subj, freq_cut, person, modality, first) %>%
-  summarise(n = n()) %>%
-  group_by(freq_cut, subj, person, first) %>%
-  mutate(n = n/sum(n)) %>% #probability
-  group_by(freq_cut, person, modality, first) %>%
-  multi_boot_standard("n") #there is something wrong with this multi boot standard function 
-
-ggplot(usage_data_2,
-       aes(x = as.numeric(freq_cut), y = mean, 
-           color = person, linetype = first)) + 
-  facet_wrap(~ modality) +
-  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper), 
-                  size=.75, position = position_dodge(1),
-                  show.legend = FALSE)+
-  geom_line(position = position_dodge(1)) +   
-  theme(legend.position= "bottom") + 
-  ylab("proportion of utterances") 
-
-```
-
 These plots show the tradeoff between speech and gesture across ages for children and parents. 
 ```{r speech_gesture_plot, fig.width=9, fig.height=4}
 plotting_data <- coded_responses %>%
@@ -314,24 +241,49 @@ datatable(tidy_table(parent_lm), rownames = FALSE,
           options = list(searching = FALSE), width = 400)
 ```
 
-Let's also check whether production of *both* modalities simultaneously changes over development and frequency
+```{r first referent- FIX MULTI BOOT STANDARD ERROR}
+#we want to see the probability of modality/person referencing something for the first time, not just if it is the same or different from the last referent 
 
-```{r both_model}
+usage_data <- bind_rows(first_data, not_first_data) %>%
+  filter(freq>1) %>% #taking out referents that are only mentioned once changes nothing
+  group_by(subj, age, person, modality, first) %>%
+  summarise(n = n()) %>% 
+  group_by(age, subj, person, first) %>%
+  mutate(n = n/sum(n)) %>% #probability
+  group_by(age, person, modality, first) %>%
+  multi_boot_standard("n")  
 
-child_both_lm <- glmer(cbind(both, speech + gesture) ~ age * log(freq) + 
-                    (1|referent) + (1|subj), 
-      data = filter(modality_data, person == "child"),
-      family = "binomial")
+#from this plot, we can see that for the children < 26mos, they are more likely to gesture to an object if it is the first utterance versus not first utterance, and they are also more likely to both gesutre/speech to the object if it is the first utternace. They are less likely to use speech as the first reference. The confidence intervals show that these relationships are significant
+ggplot(usage_data, aes(x = age, y = mean, color = modality,
+                       linetype = first)) + 
+  facet_wrap(~ person) + 
+  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper), 
+                  size=.75, position = position_dodge(1),
+                  show.legend = FALSE)+
+  geom_line() +   
+  theme(legend.position= "bottom") + 
+  ylab("proportion of utterances") 
 
-datatable(tidy_table(child_both_lm), rownames = FALSE, 
-          options = list(searching = FALSE), width = 400)
 
-parent_both_lm <- glmer(cbind(both, speech + gesture) ~ age + log(freq) + 
-                    (1|referent) + (1|subj), 
-      data = filter(modality_data, person == "parent"),
-      family = "binomial")
+#now we are looking at frequency and seeing what happens for first or not first referents across the frequency for what modality and what person, see that parents over time increase speech (especially for first referents?)
+usage_data_2 <- bind_rows(first_data, not_first_data) %>%
+  filter(freq>1) %>% #taking out referents that are only mentioned once changes nothing
+  group_by(subj, freq_cut, person, modality, first) %>%
+  summarise(n = n()) %>%
+  group_by(freq_cut, subj, person, first) %>%
+  mutate(n = n/sum(n)) %>% #probability
+  group_by(freq_cut, person, modality, first) %>%
+  multi_boot_standard("n") #there is something wrong with this multi boot standard function 
 
-datatable(tidy_table(parent_both_lm), rownames = FALSE, 
-          options = list(searching = FALSE), width = 400)
+ggplot(usage_data_2,
+       aes(x = as.numeric(freq_cut), y = mean, 
+           color = person, linetype = first)) + 
+  facet_wrap(~ modality) +
+  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper), 
+                  size=.75, position = position_dodge(1),
+                  show.legend = FALSE)+
+  geom_line(position = position_dodge(1)) +   
+  theme(legend.position= "bottom") + 
+  ylab("proportion of utterances") 
 
 ```

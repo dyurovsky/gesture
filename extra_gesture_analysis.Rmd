@@ -1,0 +1,246 @@
+---
+title: "extra_gesture_analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+This is all of your work in progress code, code that failed/doesn't seem useful anymore but you don't want to delete, and questions that you have left to work on 
+
+Questions to work on:
+how do we capture a discourse? 
+
+Right now:
+1.Figure out how to split multiple referents when taking the sample data
+2.Fix the issue with multi bootstrapping in the plot of everything  
+3."mom" data--get at how long these repeated instances are, what is happening between them (is parent on a different referent and child is trying to get attention? How understand or define an instance of attention-getting), see if mom proportion difference by age is significant 
+4.Update dan, push code through github  
+
+```{r}
+#Try making Frank et al. style Gleitman plots. It turns out we have too many different referents... Here are a few ways of collapsing the data to get a better sense for it
+
+gleitman_data <- coded_responses %>%
+  #filter(subj == 29, age == 22) %>%
+  filter(subj==29) %>%
+  mutate(order = as.numeric(as.factor(time))) %>%
+  filter(order > 100, order < 300, freq>200) 
+  
+
+ref_freqs <- gleitman_data %>%
+  group_by(referent) %>%
+  summarise(n = n()) %>%
+  arrange(n)
+
+gleitman_sorted <- gleitman_data %>%
+  mutate(referent = factor(referent, levels = ref_freqs$referent))
+  
+#plot of all the referent mentions with parent and child different modalities, sorted by frequency of referent for a specific subset  
+ggplot(aes(x = order, y = referent, fill = interaction(person, modality)),
+           data = gleitman_sorted) + 
+  geom_tile(color = "black") +
+  theme(legend.position = "bottom") +facet_wrap (~age)
+
+discourse_data <- coded_responses %>%
+  mutate(order = as.numeric(as.factor(time))) %>%
+  filter(referent != "mom") %>%
+  filter(subj==29, age==22) %>%
+  filter(order > 25, order < 95) %>%
+  mutate(new_discourse = lag(referent) == referent)%>%
+  group_by(person,new_discourse, order, modality) %>%
+  summarize(count=n()) %>%
+  mutate(proportion=count/sum(count)) 
+
+#plot showing tradeoff of discourse (need to choose individual subject, too much to look at overall)
+ggplot(aes(x = order, y = person, fill = new_discourse), data = discourse_data) + 
+  geom_tile(color = "black") +
+  theme(legend.position = "bottom")+facet_wrap( ~ modality)
+```
+
+```{r modality/person transitions}
+#make probability matrix of transitions between parent speech, child speech, parent gesture, child gesture, parent both, child both (AKA transition matrix of interaction between person and modality) 
+
+transition_responses<-coded_responses %>%
+  select(subj, age, person, time, referent, modality) %>%
+  filter(modality != "both") %>%
+  group_by(subj, age) %>%
+  mutate(same_person = person == lag(person), 
+         same_modality = modality == lag(modality), 
+         same_referent = referent == lag(referent)) %>%
+  group_by(age, person, modality, subj) %>%
+  summarise_at(vars(same_person, same_modality, same_referent), funs(mean), na.rm = T) %>%
+  gather(measure, value, same_person, same_modality, same_referent) %>%
+  group_by(age, person, modality, measure) %>%
+  summarise_at(vars(value), funs(mean, sem))
+
+
+ggplot(transition_responses, aes(x = age, y = mean, color = person,
+                                 label = person)) + 
+  facet_grid(measure ~ modality) + 
+  geom_pointrange(aes(ymin = mean - sem, ymax = mean + sem), 
+                  position = position_dodge(.5)) + 
+  geom_line() + 
+  geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
+  scale_x_continuous(limits = c(13, 30))
+
+same_ref_transitions<-coded_responses %>%
+  select(subj, age, person, time, referent, modality) %>%
+  group_by(subj, age) %>%
+  mutate(same_person = person == lag(person),
+         mom_person = lag(person=="parent"),
+         child_person = lag(person=="child"), 
+         same_modality = modality == lag(modality), 
+         same_referent = referent == lag(referent)) %>%
+  filter(same_referent) %>%
+  group_by(age, person, modality, subj) %>%
+  summarise_at(vars(same_modality, child_person, same_person), funs(mean), na.rm = T) %>%
+  gather(measure, value,  same_modality, child_person, same_person) %>%
+  group_by(age, person, modality, measure) %>%
+  summarise_at(vars(value), funs(mean, sem))
+  
+ggplot(same_ref_transitions, aes(x = age, y = mean, color = person,
+                                 label = person)) + 
+  facet_grid(measure ~ modality) +
+  geom_pointrange(aes(ymin = mean - sem, ymax = mean + sem), 
+                  position = position_dodge(.5)) + 
+  geom_line() + 
+  geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
+  scale_x_continuous(limits = c(13, 30))
+```
+
+```{r}
+#break up by what happens after child gestures or child speaks, who mentions next? 
+speech_first <- coded_responses %>%
+  group_by (subj, age, person, referent) %>%
+  mutate(person_lag = lag(person)) %>%
+  filter(modality)
+  select(subj, age, person, modality, time, referent) %>%
+  unite(type, person, modality, remove = FALSE) %>%
+  mutate(child_lag=lag(type)) %>%
+  group_by(subj, age, person, modality) %>%
+  filter(child_lag=="child_gesture") %>%
+  group_by(subj, age, person, modality) %>%
+  summarise(n = n()) %>%
+  mutate(n = n/sum(n)) %>% #probability
+  group_by(age, person, modality) %>%
+  multi_boot_standard("n")
+
+ggplot(child_lag, aes(x = age, y = mean, color = modality)) + 
+  facet_wrap(~ person) + 
+  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper), 
+                  size=.75, position = position_dodge(1),
+                  show.legend = FALSE)+
+  geom_line() +   
+  theme(legend.position= "bottom") + 
+  ylab("proportion of utterances") 
+```
+
+```{r mom code}
+mom_data<-coded_responses %>%
+  group_by(subj, age, modality) %>%
+  mutate(repeated= lag(referent),
+         future=lead(modality)) %>%
+  group_by(subj, age) %>%
+  filter(referent=="mom") %>%
+  filter(repeated=="mom"|repeated=="cat"|repeated=="dog"|repeated=="ball" | repeated=="baby" | repeated=="child") 
+
+
+ggplot(aes(x=future, fill=modality), data=mom_data) + theme(legend.position="bottom")+geom_bar()+facet_wrap(~person) #shows that there is a lot of child repetition of the word mom
+
+
+#what we have here is a data set of all the times mom was referenced, with a variable saying what the referent was before this. We can use the time column to tell us if/how many times the referent "mom" was repeated by seeing how large the time steps are between references of mom 
+#granted, this is somewhat flawed because there may be other references between mom--if they are trying to get attention, the mom may say a different referent in between, so let's try going two lags back
+mom_repeated <-coded_responses %>%
+  mutate(time= rownames(.)) %>%
+  mutate(last_ref=lag(referent),
+         last_last_ref=lag(last_ref)) %>%
+  filter(referent=="mom")
+```
+
+Does parent/child production of reference in *both* modalities simultaneously changes with age and word frequency?
+
+```{r both_probabilities}
+both_data <- modality_data %>%
+  group_by(person, age, freq_cut) %>%
+  summarise(both = sum(both), gesture = sum(gesture), speech = sum(speech)) %>%
+  gather(modality, count, both, gesture, speech) %>%
+  group_by(person, freq_cut, age) %>%
+  mutate(count = count/sum(count)) %>%
+  group_by(person, freq_cut, modality) %>%
+  summarise(count = mean(count))
+
+ggplot(aes(x = freq_cut, y = count, color = modality, group = modality), 
+       data = both_data) + 
+  facet_wrap(~ person) + 
+  geom_point() + 
+  theme(legend.position = "right") + 
+  geom_smooth(se = FALSE)
+```
+
+Let's also check whether production of *both* modalities simultaneously changes over development and frequency
+
+```{r both_model}
+
+child_both_lm <- glmer(cbind(both, speech + gesture) ~ age * log(freq) + 
+                    (1|referent) + (1|subj), 
+      data = filter(modality_data, person == "child"),
+      family = "binomial")
+
+datatable(tidy_table(child_both_lm), rownames = FALSE, 
+          options = list(searching = FALSE), width = 400)
+
+parent_both_lm <- glmer(cbind(both, speech + gesture) ~ age + log(freq) + 
+                    (1|referent) + (1|subj), 
+      data = filter(modality_data, person == "parent"),
+      family = "binomial")
+
+datatable(tidy_table(parent_both_lm), rownames = FALSE, 
+          options = list(searching = FALSE), width = 400)
+
+```
+
+Mom as a unique referent
+```{r "mom"}
+#what we have here is a data set of all the times mom was referenced, with a variable saying what the referent was before this. We can use the time column to tell us if/how many times the referent "mom" was repeated by seeing how large the time steps are between references of mom 
+#granted, this is somewhat flawed because there may be other references between mom--if they are trying to get attention, the mom may say a different referent in between, so let's try going two lags back
+mom_repeated <-coded_responses %>%
+  mutate(last_ref=lag(referent),
+         last_utt=lag(interaction(person,modality)),
+         next_per=lead(person), 
+         last_last_ref=lag(last_ref),
+         ref=ifelse(referent=="mom", 1, 0),
+         fut_utt=lead(interaction(person, modality))) %>%
+  filter(person=="child") 
+#make proportions
+#really only interested in how the child uses "mom", not as much how the mother refers to herself
+  
+mom_prop<-coded_responses %>%
+  filter(person=="child") %>%
+  group_by(subj, age) %>%
+  summarise(prop= sum(as.integer(referent=="mom"))/sum(n())) 
+
+#when just looking at the plot of mom references across age for child, you see that there is a very sharp increase from 18 to 22 months--is this driving some of our other results? Is this difference significant? Ran a t-test and it was not significant (p=0.0885)
+ggplot(aes(x=age, y=(prop/10)), data=mom_prop)+geom_bar(stat="identity")+ylab("Proportion of mom referents by child")
+
+#how do we prove that the word "mom" is being used to get attention, versus being more communicative? look at the modalities of what precedes it
+#child more likely than parent to say next referent if "mom" was previous referent, but also overall (just shows that children repeat themselves?)
+#need to see what proportion are child next for mom versus for any other referent
+ggplot(aes(x=age, fill=next_per), data=mom_repeated) +geom_bar()+facet_wrap(~ref)+theme(legend.position="bottom")
+
+ggplot(aes(x=last_utt), data=mom_repeated) +geom_bar()+facet_wrap(~ref)
+
+```
+
+```{r first reference length}
+#previous studies of parent data have shown that the first time a referent is introduced, this introduction is longer. Is this true for child-directed speech? Yes! The chats have 5 more characters
+first_parent_data<-coded_responses %>%
+  mutate(isFirst = ifelse(time2 %in% first_data$time2, "first","not first")) %>%
+  filter(person=="parent") %>%
+  mutate(utt_length=nchar(chat)) %>%
+  group_by(isFirst) %>%
+  summarise(sum= sum(utt_length, na.rm = TRUE) / length(isFirst))
+
+```
+
