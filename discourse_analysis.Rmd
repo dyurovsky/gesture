@@ -53,7 +53,6 @@ coded_responses <- read_feather("feathers/coded_responses.feather")
 ```
 
 Split referents up 
-
 ```{r split_ref}
 spread_refs <- function(df) {
   
@@ -88,7 +87,7 @@ spread_refs <- function(df) {
 }
 ```
 
-## Sampling/discourse analysis
+## Sampling analysis
 
 Sample subsections of the corpus to look at how new referents enter the discourse
 
@@ -115,7 +114,7 @@ split_df <- function(df, size, count) {
 }
 ```
 
-```{r first_refs}
+```{r sample_first_refs}
 
 sampled_subjs <- loaded_subjs %>%
   group_by(subj, age) %>%
@@ -170,9 +169,9 @@ ggplot(first_ref_modality, aes(x= age, y = mean, color = isFirst, label = isFirs
 
 ## Comparisons to previous discourse analyses 
 
-In the Frank et al discourse paper, they defined a discourse to be 3 or more continued references to the same referent. While this is a flawed definition of discourse, I was curious to see how many discourses were in our data set
+In the Frank et al discourse paper, they defined a discourse to be 3 or more continued references to the same referent. While this is a flawed definition of discourse, I was curious to see how many "discourses" were in our data set
 
-```{r Frank discourse}
+```{r Frank_discourse}
 discourse_amt <- coded_responses %>%
   mutate(lag_ref = lag(referent),
          lag_lag_ref = lag(lag_ref)) %>%
@@ -190,20 +189,20 @@ ggplot(discourse_amt, aes(x = age, y= mean)) +
   ylab("Number of Referent")
 ```
 
-It seems like there are the most strings of at least 3 of same referent at age 22mos, not other months! interesting (not sure if coded completely right, definitely took some shortcuts)
+It seems like there are the most strings of at least 3 of same referent at age 22mos, not other months! However, we probably need to normalize by total number of refernts
 
-Probably need to normalize by total number of refernts
+How do these data compare to Frank et al? They used only speech data with a much smaller sample of referents, 5-15 minute lengths of play (how long are ours?) with a total corpus of 5,000 utterances (smaller) and found 6mos=88 discourse, 12mos=110, 18mos=107. We would expect them to have more repeated discourses because they have many fewer potential referents. This seems to be the case.
 
-How do these data compare to Frank et al? They used only speech data with a much smaller sample of referents, 5-15 minute lengths of play (how long are ours?) with a total corpus of 5,000 utterances (smaller) and found 6mos=88 discourse, 12mos=110, 18mos=107. We would expect them to have more repeated discourses because they have many fewer potential referents. This seems to be the case, because even though we have more discourses, they may not have been coded correctly (overestimates) and the corpus is much, much larger 
+Here is a gleitman plot that is actually interpretable, for giving an example of what a discourse might look like in the data:
 
-```{r}
+```{r gleitman_readable}
 discourse_2<-coded_responses %>%
   mutate(lag_ref=lag(referent),
          lag_lag_ref=lag(lag_ref)) %>%
   filter(referent==lag_ref, lag_lag_ref == lag_ref) %>% #filter for strings of at least 3 same referent 
   group_by(subj, age, referent, time) %>%
   slice(1) %>%
-  filter(subj==33, age==22, time >500)
+  filter(subj==33, age==22, time >500) #arbitrary choice
 
 ggplot(aes(x = time, y = referent, fill =  interaction(person,modality)), data = discourse_2) + 
   geom_tile(color = "black") + 
@@ -211,22 +210,32 @@ ggplot(aes(x = time, y = referent, fill =  interaction(person,modality)), data =
 
 ```
 
-Finally, a gletiman plot that looks readable! 
+## Discourse structure
 
-Discourse success = same referent in succession mentioned by different person (mom/child talking about same thing with concrete noun included)
+Our main goal is to be able to predict what a discourse between a parent and child will look like. We therefore want to try and capture the parent and child's purposes for communicating with each other. One way to do this is to develop a measure for whether a communicative act (speech or gesture) was successful. 
 
-Try first without real discourse structure (all NAs are excluded) using coded_responses data. Also helps reduce probelms b/c pronoun-only sentences are excluded, though there may be multiple referent with one mentioned as pronoun issue 
-```{r discourse success}
+Though this may not be the correct way to define it, here we look at how the subject and referent changes from one referent-containing utterance to the next to determine which of the following categories it belongs to. 
+
+**success** = referent stays the same but person changes (the parent and child are communicating about the same thing, there is mutual  understanding)
+
+**switch** = referent changes and person changes (potentially a measure of ignoring or shifted attention, may be complicated because we are only including pairs here, and there is a chance the subjects could return to the original referent after one extra utterance)
+
+**repeat** = referent stays the same and person stays the same (subject is repeating themselves, perhaps to practice language or gain attention)
+    
+**same_per_switch** = referent changes and person stays the same (the person may have an attention shift, or may change referents to try and capture attention of other)
+  
+It may be useful to try looking at actual discourse data (for example, the sample data) which includes utterances without a concrete noun, but for now let's look just at the coded_responses data, which includes all data that contains a referent. 
+
+```{r discourse_data}
 discourse_success <- coded_responses %>%
   mutate(isFirst = if_else(time2 %in% first_data$time2, "first", "not first")) %>% 
   mutate(success = if_else(lag(person) != person & lag(referent) == referent, "success",
                           if_else(lag(person) != person & lag(referent) !=referent, "switch",
                                   if_else(lag(referent) == referent, "repeat", 
                                           "same_per_swtich")))) %>%
-  filter(!is.na(success))
+  filter(!is.na(success)) #takes out first line of data so we have no NAs
 ```
 
-plot of discourse successes looks similar to plots of #of referents per age, which is interesting because you would think there would be most successful utterances for the oldest kids 
 
 ```{r discourse_success_plot}
 ggplot(discourse_success, aes(x=age, fill=person)) + 
@@ -237,74 +246,107 @@ ggplot(discourse_success, aes(x=age, fill=person)) +
   ggtitle("discourse type (individual or interaction) by referent stability (same or different)")
 ```
 
-Does parent discourse responsiveness stay constant over age? Or is it larger for small children? See proportion of successes over proportion of switches 
-```{r }
+Does parent discourse responsiveness stay constant over age? Or is it larger for small children? 
+
+```{r prop_person_age}
 discourse_prop <- discourse_success %>%
   group_by(age, person, success) %>%
   summarise(n=n()) %>%
-  group_by(age) %>%
+  group_by(age, success) %>%
   mutate(prop= n/sum(n))
 
 ggplot(discourse_prop, aes(x=age, y=prop, fill=person)) + 
   facet_wrap(~success) + 
   geom_bar(stat= "identity", position="dodge") + 
   theme(legend.position="bottom") + 
-  ggtitle("discourse proportion between person")
+  scale_fill_brewer(palette="Set1")+
+  ggtitle("proportion of parent to child strategy at each age")
 ```
 
-Shows what proportion of time parents or children are spending with each kind of discourse (be careful about interpreting)
-```{r}
+Shows what proportion of time parents or children are spending with each kind of discourse (be careful about interpreting).
+
+```{r prop_people}
 discourse_prop2 <- discourse_success %>%
   group_by(person, age, success) %>%
   summarise(n=n()) %>%
+  group_by(age) %>%
   mutate(prop= n/sum(n))
 
-ggplot(discourse_prop2, aes(x=age, y=prop, fill = success)) + 
+ggplot(discourse_prop2, aes(x=age, y=prop, color = success)) + 
   facet_wrap(~person) + 
-  geom_bar(stat="identity", position="dodge") + 
+  geom_point()+
+  geom_line()+
+  scale_color_brewer(palette = "Set1") +
   theme(legend.position="bottom") + 
-  ggtitle("proportion of time person spends using discourse type") + 
-  scale_fill_brewer(palette = "Set1")
+  ggtitle("proportion of time person spends using discourse type")
 ```
 
-What happens when the referent is first introduced into the session? How does that change the effects we have seen
+What happens when the referent is first introduced into the session? How does that change the discourse type effects we have seen? This analysis is not meaningful mainly because of the way we defined discourse type (depends on the previous utterance). First references would only be applicable for referent switches. 
 
-not sure if we find anything meaningful here...
-```{r discourse first}
+```{r discourse_first}
 first_success<-coded_responses %>%
   mutate(isFirst = ifelse(time2 %in% first_data$time2, "first","not first")) %>% 
-  mutate(success = ifelse(lead(person) != person & lead(referent)==referent, "success", ifelse(lead(person) != person & lead(referent) !=referent, "switch", ifelse(lead(referent)==referent, "repeat", "same_per_swtich")))) %>%
+  mutate(success = ifelse(lag(person) != person & lag(referent)==referent, "success", ifelse(lag(person) != person & lag(referent) !=referent, "switch", ifelse(lag(referent)==referent, "repeat", "same_per_swtich")))) %>%
   filter(is.na(success)==FALSE) %>%
-  filter(isFirst=="first")
+  group_by(person, age, isFirst, success) %>%
+  summarise(count = sum(is.na(referent)==FALSE))
 
-not_first_success<-coded_responses %>%
-  mutate(isFirst = ifelse(time2 %in% first_data$time2, "first","not first")) %>% 
-  mutate(success = ifelse(lead(person) != person & lead(referent)==referent, "success", ifelse(lead(person) != person & lead(referent) !=referent, "switch", ifelse(lead(referent)==referent, "repeat", "same_per_swtich")))) %>%
-  filter(is.na(success)==FALSE) %>%
-  filter(isFirst=="not first")
-
-ggplot(aes(x=age, fill=person), data=first_success)+geom_bar(position="dodge")+theme(legend.position="bottom")+facet_wrap(~success)+ggtitle("discourse type (individual or interaction) by referent stability (same or different)", subtitle="first")
-ggplot(aes(x=age, fill=person), data=not_first_success)+geom_bar(position="dodge")+theme(legend.position="bottom")+facet_wrap(~success)+ggtitle("discourse type (individual or interaction) by referent stability (same or different)", subtitle="not first")
+ggplot(first_success, aes(x = age, y = count, color = isFirst, label = isFirst)) + 
+  facet_grid(success~person) +
+  geom_point() +
+  geom_line()+
+  ylab("referent frequency") + 
+  scale_color_brewer(palette = "Set1")  +
+  geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
+  scale_x_continuous(limits = c(12, 30))
 ```
 
-```{r discourse modality}
-#see if there is anything meaningful about modality here 
+What about if we introduce modality into our discourse analysis? Are there any differences in the frequency of repetitions, same_per_switches, successes, or switches based on what modality the person is using?
 
-#This is A LOT & hard to read, but might be interesting for the youngest kids only. Other ages it doesn't look like there is too much to garner from modality data (it seems pretty consistent)
-ggplot(aes(x=age, fill=interaction(modality,success)), data=discourse_success)+geom_bar( position="dodge")+theme(legend.position="bottom")+facet_wrap(~person)+ggtitle("success, modality, person interaction freq")
+There is a lot of information on these graphs, which makes them somewhat difficult to read. It seems like the use of modality is pretty consistent across type of discourse, except for children of age 14mos. There may be something interesting happening at that age point only. 
+
+```{r discourse_modality}
+ggplot(aes(x=success, fill=modality), data=discourse_success)+
+  geom_bar(position="dodge")+
+  theme(legend.position="bottom")+
+  facet_grid(person~age)+
+  ggtitle("age, person, modality, discourse type freq")+
+  scale_color_brewer(palette = "Set1")
+
+ggplot(aes(x=age, fill=modality), data=discourse_success)+
+  geom_bar(position="dodge")+
+  theme(legend.position="bottom")+
+  facet_grid(person~success)+
+  ggtitle("discourse type, person, modality, age freq")+
+  scale_color_brewer(palette = "Set1")
 
 mod_freq<-discourse_success %>%
   group_by(person, age, success, modality) %>%
   summarise(n=n()) %>%
   mutate(prop= n/sum(n))
 
-#modality proportions do not seem to change for parents across ages
-ggplot(aes(x=age, y=prop, fill=interaction(modality,success)), data=mod_freq)+geom_bar(stat="identity", position="dodge")+theme(legend.position="bottom")+facet_wrap(~person)+ggtitle("success, modality, person interaction prop")
+ggplot(aes(x=success, y=prop, color=modality, label=modality), data=mod_freq)+
+  geom_point()+
+  geom_line(aes(group=modality))+
+  theme(legend.position="bottom")+
+  facet_grid(person~age)+
+  ggtitle("age, person, modality, discourse type proportions")+
+  scale_color_brewer(palette = "Set1")
+```
 
-#smaller age group
-smaller_data<-discourse_success %>%
-  filter(age==14)
+What is the purpose of repetition for children? Are they using it simply to practice a recently-learned word, or are they using it as an attention-getting mechanism? 
 
-ggplot(aes(x=age, fill=interaction(modality,success)), data=smaller_data)+geom_bar( position="dodge")+theme(legend.position="bottom")+facet_wrap(~person)+ggtitle("14mos interaction")
+```{r repeat_data}
+repeat_data <- discourse_success %>%
+  filter(person == "child")%>%
+  mutate(rep = ifelse(lag(success) == "repeat" & success != "repeat", 1, 0)) %>%
+  filter(is.na(rep)==FALSE) %>%
+  group_by(rep, success) %>%
+  summarise(n=n()) %>%
+  mutate(prop = n/sum(n))
+
+ggplot(aes(x=success, y=prop), data=repeat_data)+
+  geom_bar(stat="identity")+
+  facet_wrap(~rep)
 ```
 
