@@ -230,6 +230,15 @@ ggplot(aes(x=age, fill=person), data=not_first_success)+geom_bar(position="dodge
 #This is A LOT & hard to read, but might be interesting for the youngest kids only. Other ages it doesn't look like there is too much to garner from modality data (it seems pretty consistent)
 ggplot(aes(x=age, fill=interaction(modality,success)), data=discourse_success)+geom_bar( position="dodge")+theme(legend.position="bottom")+facet_wrap(~person)+ggtitle("success, modality, person interaction freq")
 
+mod_freq<-discourse_success %>%
+  group_by(person, age, success, modality) %>%
+  summarise(n=n()) %>%
+  mutate(prop= n/sum(n))
+
+#modality proportions do not seem to change for parents across ages
+ggplot(aes(x=age, y=prop, fill=interaction(modality,success)), data=mod_freq)+geom_bar(stat="identity", position="dodge")+theme(legend.position="bottom")+facet_wrap(~person)+ggtitle("success, modality, person interaction prop")
+
+#smaller age group
 smaller_data<-discourse_success %>%
   filter(age==14)
 
