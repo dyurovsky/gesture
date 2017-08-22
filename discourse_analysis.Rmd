@@ -1,8 +1,14 @@
 ---
 title: "Discourse analysis"
-author: "Dan Yurovsky, Maddie Meyers"
-date: "8/15/2017"
-output: html_document
+author: " Maddie Meyers and Dan Yurovsky"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: false
+    number_sections: false
+    theme: lumen
+    toc_float: false
+    code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
@@ -18,6 +24,7 @@ library(broom)
 library(data.table)
 library(ggplot2)
 library(forcats)
+library(feather)
 
 opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
                error = FALSE, cache = TRUE, tidy = FALSE)
@@ -37,48 +44,53 @@ theme_set(theme_dy())
 
 Setting up data
 ```{r load_data}
-files <-list.files("ldp_data/fixed_data/", 
-                   "*.csv", full.names = TRUE)
-
-loaded_subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
-  bind_rows() %>%
-  mutate(age = 10+session*4) %>%
-  mutate(time2=rownames(.)) %>%
-  group_by(subj, age) %>%
-  mutate(time = 1:n()) %>%
-  select(time, time2, subj, age, person, spoken_obj, gestured_obj, referent, gloss, chat)
-
-max_refs <- loaded_subjs %>%
-  ungroup() %>%
-  gather(ref_col, refs, spoken_obj, gestured_obj, referent) %>%
-  mutate(num_refs = str_count(refs,";")) %>%
-  summarise(num_refs = max(num_refs, na.rm = T)+1) %>%
-  as.integer()
-  
-ref_list <- sapply(1:max_refs,function(x) paste0("referent",x))
-
-spread_referents <- loaded_subjs %>%
-  separate_("referent", ref_list, sep = ";", fill = "right") %>%
-  gather_("number", "referent", ref_list) %>%
-  filter(!is.na(referent)) %>%
-  mutate(referent = str_trim(referent))
-
-coded_responses <- spread_referents %>%
-  mutate(spoken_obj = map(str_split(spoken_obj, ";"), str_trim),
-         gestured_obj = map(str_split(gestured_obj, ";"), str_trim)) %>%
-  rowwise() %>%
-  mutate(spoken = purrr::has_element(spoken_obj[[1]], referent),
-         gestured = purrr::has_element(gestured_obj[[1]], referent),
-         both = spoken & gestured) %>%
-  ungroup() %>%
-  mutate(modality = if_else(spoken & gestured, "both", 
-                            if_else(spoken, "speech", "gesture"))) %>%
-  select(time, time2, subj, age, person, referent, modality, chat, gloss) %>%
-  left_join(referents) %>%
-  mutate(freq_cut = cut(log(freq), 4))
+# Original data
+loaded_subjs <- read_feather("feathers/loaded_subjs.feather")
+# Referents and their frequencies
+referents <- read_feather("feathers/referents.feather")
+# End result of splitting referents and coding modality
+coded_responses <- read_feather("feathers/coded_responses.feather")
 ```
 
-Sampling/discourse analysis
+Split referents up 
+
+```{r split_ref}
+spread_refs <- function(df) {
+  
+  max_refs <- df %>%
+    ungroup() %>%
+    gather(ref_col, refs, spoken_obj, gestured_obj, referent) %>%
+    mutate(num_refs = str_count(refs,";")) %>%
+    summarise(num_refs = max(num_refs, na.rm = T)+1) %>%
+    as.integer()
+    
+  ref_list <- sapply(1:max_refs,function(x) paste0("referent",x))
+  
+  spread_referents <- df %>%
+    separate_("referent", ref_list, sep = ";", fill = "right") %>%
+    gather_("number", "referent", ref_list) %>%
+    filter(!is.na(referent)) %>%
+    mutate(referent = str_trim(referent))
+  
+  spread_referents %>%
+    mutate(spoken_obj = map(str_split(spoken_obj, ";"), str_trim),
+           gestured_obj = map(str_split(gestured_obj, ";"), str_trim)) %>%
+    rowwise() %>%
+    mutate(spoken = purrr::has_element(spoken_obj[[1]], referent),
+           gestured = purrr::has_element(gestured_obj[[1]], referent),
+           both = spoken & gestured) %>%
+    ungroup() %>%
+    mutate(modality = if_else(spoken & gestured, "both", 
+                              if_else(spoken, "speech", "gesture"))) %>%
+    select(time, time2, sample, subj, age, person, referent, modality, chat, gloss) %>%
+    left_join(referents) %>%
+    mutate(freq_cut = cut(log(freq), 4))
+}
+```
+
+## Sampling/discourse analysis
+
+Sample subsections of the corpus to look at how new referents enter the discourse
 
 ```{r ref_density}
 # Takes a data frame (grouped), a consecutive sample size (e.g. 10 rows), and a number of samples (e.g. 20 samples) and returns a sub-sampled dataframe with a new column "sample" that indicates the sample number
@@ -95,26 +107,20 @@ split_df <- function(df, size, count) {
  split_list <- map(1:num_splits, function(n) (n-1)*size + 1:size) %>%
    sample(., count)
  
- 
  samples <- map(split_list, function(n) df %>% slice(n))
  
  sampled_df <- map(1:length(samples), 
                    function(n) mutate(samples[[n]], sample = n)) %>%
    bind_rows()
 }
+```
 
-ref <- loaded_subjs %>%
-  group_by(subj, age)
+```{r first_refs}
 
-#need to split multiple referents in the sample data(HOW)?
-
-sample_ref <- split_df(ref, 16, 30) %>%
-  mutate(spoken = (is.na(spoken_obj)==FALSE),
-         gestured = (is.na(gestured_obj)==FALSE),
-         both = spoken & gestured) %>%
-  mutate(modality = if_else(both==TRUE, "both",  
-                            if_else(spoken==TRUE, "speech", if_else(gestured==TRUE, "gesture", "")))) %>%
-  select(time2, time, subj, age, sample, person, referent, modality, chat, gloss) 
+sampled_subjs <- loaded_subjs %>%
+  group_by(subj, age) %>%
+  split_df(., 16, 30) %>%
+  spread_refs()
 
 #now want to see how many referents in the discourse are first referents and plot those averages 
 first_data <- coded_responses %>%
@@ -127,41 +133,70 @@ not_first_data <- coded_responses %>%
   slice(2:nrow(.)) %>% 
   mutate(first = FALSE)
 
-first_ref <- sample_ref %>%
+first_ref <- sampled_subjs %>%
   mutate(isFirst = ifelse(time2 %in% first_data$time2, "first","not first")) %>%
   group_by(subj, age, sample, isFirst, person, modality) %>%
-  summarise(count=sum(is.na(referent)==FALSE)) %>%
-  group_by(isFirst, age, subj, person, modality) %>%
-  summarise(avg_ref = sum(count) / (30))
+  summarise(count=sum(is.na(referent)==FALSE))
 
-ggplot(aes(x=age, y=(avg_ref), fill=isFirst), data=first_ref) + geom_bar(stat="identity", position="dodge")+ylab("average referents per discourse")+theme(legend.position="bottom") + facet_wrap(~person)
+first_ref_all <- first_ref %>%
+  group_by(isFirst, age, person, subj) %>%
+  summarise(count = mean(count)) %>%
+  summarise(mean = mean(count, na.rm = T),
+            sem = sem(count, na.rm = T))
 
-#what about modality? How does this interact within the sample/number of referents within discourse?
-sample_modality <-first_ref %>%
-  filter(person=="child")
+first_ref_modality <- first_ref %>%
+  group_by(isFirst, age, person, modality, subj) %>%
+  summarise(count = mean(count)) %>%
+  summarise(mean = mean(count, na.rm = T),
+            sem = sem(count, na.rm = T))
+            
 
-#I don't think this tells us anything meaningful 
-ggplot(aes(x=age, y=avg_ref, fill=modality), data=sample_modality) +geom_bar(stat="identity", position="dodge")+ylab("average referents per discourse--child")+theme(legend.position="bottom")+facet_wrap(~isFirst)
+ggplot(first_ref_all, aes(x = age, y = mean, color = isFirst, label = isFirst)) + 
+  facet_wrap(~person) +
+  geom_pointrange(aes(ymin = mean - sem, ymax = mean+sem)) +
+  ylab("refs per 16 utterances") + 
+  scale_color_brewer(palette = "Set1") + 
+  geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
+  scale_x_continuous(limits = c(12, 30))
 
+ggplot(first_ref_modality, aes(x= age, y = mean, color = isFirst, label = isFirst)) + 
+  facet_grid(modality~person) +
+  geom_pointrange(aes(ymin = mean - sem, ymax = mean+sem)) +
+  ylab("refs per 16 utterances") + 
+  scale_color_brewer(palette = "Set1") + 
+  geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
+  scale_x_continuous(limits = c(12, 30))
 ```
 
-Comparisons to previous discourse analyses 
+## Comparisons to previous discourse analyses 
+
+In the Frank et al discourse paper, they defined a discourse to be 3 or more continued references to the same referent. While this is a flawed definition of discourse, I was curious to see how many discourses were in our data set
+
 ```{r Frank discourse}
-#in the Frank et al discourse paper, they defined a discourse to be 3 or more continued references to the same referent. While this is a flawed definition of discourse, I was curious to see how many discourses were in our data set
+discourse_amt <- coded_responses %>%
+  mutate(lag_ref = lag(referent),
+         lag_lag_ref = lag(lag_ref)) %>%
+  filter(referent == lag_ref, 
+         lag_lag_ref == lag_ref) %>% #filter for strings of at least 3 same referent 
+  filter(referent != lag(referent)) %>% # grab first of each run
+  group_by(subj, age, referent, time) %>% 
+  slice(1) %>% 
+  group_by(age, subj) %>%
+  summarise(n = n()) %>%
+  summarise(mean = mean(n), sem = sem(n))
 
-discourse_amt<-coded_responses %>%
-  mutate(lag_ref=lag(referent),
-         lag_lag_ref=lag(lag_ref)) %>%
-  filter(referent==lag_ref, lag_lag_ref == lag_ref) %>% #filter for strings of at least 3 same referent 
-  group_by(subj, age, referent, time) %>%
-  slice(1) %>% #don't count additional strings (flawed here because may have multiple strings of same word in same)? is this right coded here?
-  group_by(subj, age) %>%
-  summarise(disc_count= sum(n()))
+ggplot(discourse_amt, aes(x = age, y= mean)) +
+  geom_pointrange(aes(ymin = mean - sem, ymax = mean +sem), color = "darkred") + 
+  ylab("Number of Referent")
+```
 
-#it seems like there are the most strings of at least 3 of same referent at age 22mos, not other months! interesting (not sure if coded completely right, definitely took some shortcuts)
-ggplot(aes(x=age, y=(disc_count/10)), data=discourse_amt)+geom_bar(stat="identity")
+It seems like there are the most strings of at least 3 of same referent at age 22mos, not other months! interesting (not sure if coded completely right, definitely took some shortcuts)
 
-#how do these data compare to Frank et al? They used only speech data with a much smaller sample of referents, 5-15 minute lengths of play (how long are ours?) with a total corpus of 5,000 utterances (smaller) and found 6mos=88 discourse, 12mos=110, 18mos=107. We would expect them to have more repeated discourses because they have many fewer potential referents. This seems to be the case, because even though we have more discourses, they may not have been coded correctly (overestimates) and the corpus is much, much larger 
+Probably need to normalize by total number of refernts
+
+How do these data compare to Frank et al? They used only speech data with a much smaller sample of referents, 5-15 minute lengths of play (how long are ours?) with a total corpus of 5,000 utterances (smaller) and found 6mos=88 discourse, 12mos=110, 18mos=107. We would expect them to have more repeated discourses because they have many fewer potential referents. This seems to be the case, because even though we have more discourses, they may not have been coded correctly (overestimates) and the corpus is much, much larger 
+
+```{r}
 discourse_2<-coded_responses %>%
   mutate(lag_ref=lag(referent),
          lag_lag_ref=lag(lag_ref)) %>%
@@ -173,41 +208,69 @@ discourse_2<-coded_responses %>%
 ggplot(aes(x = time, y = referent, fill =  interaction(person,modality)), data = discourse_2) + 
   geom_tile(color = "black") + 
   theme(legend.position = "bottom")
-#finally, a gletiman plot that looks readable! 
+
 ```
 
+Finally, a gletiman plot that looks readable! 
+
+Discourse success = same referent in succession mentioned by different person (mom/child talking about same thing with concrete noun included)
+
+Try first without real discourse structure (all NAs are excluded) using coded_responses data. Also helps reduce probelms b/c pronoun-only sentences are excluded, though there may be multiple referent with one mentioned as pronoun issue 
 ```{r discourse success}
-#discourse success=same referent in succession mentioned by different person (mom/child talking about same thing with concrete noun included)
-#try first without real discourse structure (all NAs are excluded) using coded_responses data. Also helps reduce probelms b/c pronoun-only sentences are excluded, though there may be multiple referent with one mentioned as pronoun issue 
+discourse_success <- coded_responses %>%
+  mutate(isFirst = if_else(time2 %in% first_data$time2, "first", "not first")) %>% 
+  mutate(success = if_else(lag(person) != person & lag(referent) == referent, "success",
+                          if_else(lag(person) != person & lag(referent) !=referent, "switch",
+                                  if_else(lag(referent) == referent, "repeat", 
+                                          "same_per_swtich")))) %>%
+  filter(!is.na(success))
+```
 
-discourse_success<-coded_responses %>%
-  mutate(isFirst = ifelse(time2 %in% first_data$time2, "first","not first")) %>% 
-  mutate(success = ifelse(lag(person) != person & lag(referent)==referent, "success", ifelse(lag(person) != person & lag(referent) !=referent, "switch", ifelse(lag(referent)==referent, "repeat", "same_per_swtich")))) %>%
-  filter(is.na(success)==FALSE)
+plot of discourse successes looks similar to plots of #of referents per age, which is interesting because you would think there would be most successful utterances for the oldest kids 
 
-#plot of discourse successes looks similar to plots of #of referents per age, which is interesting because you would think there would be most successful utterances for the oldest kids 
-ggplot(aes(x=age, fill=person), data=discourse_success)+geom_bar(position="dodge")+theme(legend.position="bottom")+facet_wrap(~success)+ggtitle("discourse type (individual or interaction) by referent stability (same or different)")
+```{r discourse_success_plot}
+ggplot(discourse_success, aes(x=age, fill=person)) + 
+  facet_wrap(~success)+
+  geom_bar(position = "dodge")+
+  theme(legend.position="bottom") + 
+  scale_fill_brewer(palette = "Set1") +
+  ggtitle("discourse type (individual or interaction) by referent stability (same or different)")
+```
 
-#does parent discourse responsiveness stay constant over age? Or is it larger for small children? See proportion of successes over proportion of switches 
-discourse_prop<-discourse_success %>%
-  group_by(age, success, person) %>%
+Does parent discourse responsiveness stay constant over age? Or is it larger for small children? See proportion of successes over proportion of switches 
+```{r }
+discourse_prop <- discourse_success %>%
+  group_by(age, person, success) %>%
   summarise(n=n()) %>%
+  group_by(age) %>%
   mutate(prop= n/sum(n))
 
-ggplot(aes(x=age, y=prop, fill=person), data=discourse_prop)+geom_bar(stat= "identity", position="dodge")+theme(legend.position="bottom")+facet_wrap(~success)+ggtitle("discourse proportion between person")
+ggplot(discourse_prop, aes(x=age, y=prop, fill=person)) + 
+  facet_wrap(~success) + 
+  geom_bar(stat= "identity", position="dodge") + 
+  theme(legend.position="bottom") + 
+  ggtitle("discourse proportion between person")
+```
 
-#shows what proportion of time parents or children are spending with each kind of discourse (be careful about interpreting)
-discourse_prop2<-discourse_success %>%
+Shows what proportion of time parents or children are spending with each kind of discourse (be careful about interpreting)
+```{r}
+discourse_prop2 <- discourse_success %>%
   group_by(person, age, success) %>%
   summarise(n=n()) %>%
   mutate(prop= n/sum(n))
 
-ggplot(aes(x=age, y=prop, fill=success), data=discourse_prop2)+geom_bar(stat="identity", position="dodge")+theme(legend.position="bottom")+facet_wrap(~person)+ggtitle("proportion of time person spends using discourse type")
+ggplot(discourse_prop2, aes(x=age, y=prop, fill = success)) + 
+  facet_wrap(~person) + 
+  geom_bar(stat="identity", position="dodge") + 
+  theme(legend.position="bottom") + 
+  ggtitle("proportion of time person spends using discourse type") + 
+  scale_fill_brewer(palette = "Set1")
 ```
 
+What happens when the referent is first introduced into the session? How does that change the effects we have seen
+
+not sure if we find anything meaningful here...
 ```{r discourse first}
-#what happens when the referent is first introduced into the session? How does that change the effects we have seen
-#not sure if we find anything meaningful here
 first_success<-coded_responses %>%
   mutate(isFirst = ifelse(time2 %in% first_data$time2, "first","not first")) %>% 
   mutate(success = ifelse(lead(person) != person & lead(referent)==referent, "success", ifelse(lead(person) != person & lead(referent) !=referent, "switch", ifelse(lead(referent)==referent, "repeat", "same_per_swtich")))) %>%
