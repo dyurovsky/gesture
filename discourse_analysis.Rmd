@@ -114,8 +114,7 @@ split_df <- function(df, size, count) {
 }
 ```
 
-```{r sample_first_refs}
-
+```{r sample_first_refs, fig.width = 8, fig.height = 4}
 sampled_subjs <- loaded_subjs %>%
   group_by(subj, age) %>%
   split_df(., 16, 30) %>%
@@ -157,7 +156,9 @@ ggplot(first_ref_all, aes(x = age, y = mean, color = isFirst, label = isFirst)) 
   scale_color_brewer(palette = "Set1") + 
   geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
   scale_x_continuous(limits = c(12, 30))
+```
 
+```{r person_modality_first, fig.width = 8, fig.height = 5}
 ggplot(first_ref_modality, aes(x= age, y = mean, color = isFirst, label = isFirst)) + 
   facet_grid(modality~person) +
   geom_pointrange(aes(ymin = mean - sem, ymax = mean+sem)) +
@@ -171,7 +172,7 @@ ggplot(first_ref_modality, aes(x= age, y = mean, color = isFirst, label = isFirs
 
 In the Frank et al discourse paper, they defined a discourse to be 3 or more continued references to the same referent. While this is a flawed definition of discourse, I was curious to see how many "discourses" were in our data set
 
-```{r Frank_discourse}
+```{r Frank_discourse, fig.width = 4, fig.height = 3}
 discourse_amt <- coded_responses %>%
   mutate(lag_ref = lag(referent),
          lag_lag_ref = lag(lag_ref)) %>%
@@ -186,7 +187,7 @@ discourse_amt <- coded_responses %>%
 
 ggplot(discourse_amt, aes(x = age, y= mean)) +
   geom_pointrange(aes(ymin = mean - sem, ymax = mean +sem), color = "darkred") + 
-  ylab("Number of Referent")
+  ylab("Number of Referents")
 ```
 
 It seems like there are the most strings of at least 3 of same referent at age 22mos, not other months! However, we probably need to normalize by total number of refernts
@@ -195,7 +196,7 @@ How do these data compare to Frank et al? They used only speech data with a much
 
 Here is a gleitman plot that is actually interpretable, for giving an example of what a discourse might look like in the data:
 
-```{r gleitman_readable}
+```{r gleitman_readable, fig.width = 8, fig.height = 4}
 discourse_2<-coded_responses %>%
   mutate(lag_ref=lag(referent),
          lag_lag_ref=lag(lag_ref)) %>%
@@ -204,7 +205,7 @@ discourse_2<-coded_responses %>%
   slice(1) %>%
   filter(subj==33, age==22, time >500) #arbitrary choice
 
-ggplot(aes(x = time, y = referent, fill =  interaction(person,modality)), data = discourse_2) + 
+ggplot(discourse_2, aes(x = time, y = referent, fill = person)) + 
   geom_tile(color = "black") + 
   theme(legend.position = "bottom")
 
@@ -237,12 +238,13 @@ discourse_success <- coded_responses %>%
 ```
 
 
-```{r discourse_success_plot}
-ggplot(discourse_success, aes(x=age, fill=person)) + 
-  facet_wrap(~success)+
-  geom_bar(position = "dodge")+
+```{r discourse_success_plot, fig.width = 6, fig.height = 4}
+ggplot(discourse_success, aes(x=age, fill=success)) + 
+  facet_wrap(~person)+
+  geom_bar(position = "stack")+
   theme(legend.position="bottom") + 
   scale_fill_brewer(palette = "Set1") +
+  scale_x_continuous(breaks = unique(discourse_success$age)) +
   ggtitle("discourse type (individual or interaction) by referent stability (same or different)")
 ```
 
@@ -252,39 +254,38 @@ Does parent discourse responsiveness stay constant over age? Or is it larger for
 discourse_prop <- discourse_success %>%
   group_by(age, person, success) %>%
   summarise(n=n()) %>%
-  group_by(age, success) %>%
+  group_by(age, person) %>%
   mutate(prop= n/sum(n))
 
-ggplot(discourse_prop, aes(x=age, y=prop, fill=person)) + 
-  facet_wrap(~success) + 
-  geom_bar(stat= "identity", position="dodge") + 
+ggplot(discourse_prop, aes(x=age, y=prop, fill=success)) + 
+  facet_wrap(~person) + 
+  geom_bar(stat= "identity", position="stack") + 
   theme(legend.position="bottom") + 
   scale_fill_brewer(palette="Set1")+
+  scale_x_continuous(breaks = unique(discourse_prop$age)) +
   ggtitle("proportion of parent to child strategy at each age")
 ```
 
 Shows what proportion of time parents or children are spending with each kind of discourse (be careful about interpreting).
 
 ```{r prop_people}
-discourse_prop2 <- discourse_success %>%
-  group_by(person, age, success) %>%
-  summarise(n=n()) %>%
-  group_by(age) %>%
-  mutate(prop= n/sum(n))
-
-ggplot(discourse_prop2, aes(x=age, y=prop, color = success)) + 
+ggplot(discourse_prop, aes(x=age, y=prop, color=success, label = success)) + 
   facet_wrap(~person) + 
-  geom_point()+
-  geom_line()+
-  scale_color_brewer(palette = "Set1") +
+  geom_line() + 
+  geom_point() + 
   theme(legend.position="bottom") + 
-  ggtitle("proportion of time person spends using discourse type")
+  scale_color_brewer(palette="Set1")+
+  scale_x_continuous(breaks = unique(discourse_prop$age),
+                     limits = c(14,30)) +
+  geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
+  ggtitle("proportion of parent to child strategy at each age")
 ```
 
 What happens when the referent is first introduced into the session? How does that change the discourse type effects we have seen? This analysis is not meaningful mainly because of the way we defined discourse type (depends on the previous utterance). First references would only be applicable for referent switches. 
 
 ```{r discourse_first}
 first_success<-coded_responses %>%
+  filter(referent != "mom") %>%
   mutate(isFirst = ifelse(time2 %in% first_data$time2, "first","not first")) %>% 
   mutate(success = ifelse(lag(person) != person & lag(referent)==referent, "success", ifelse(lag(person) != person & lag(referent) !=referent, "switch", ifelse(lag(referent)==referent, "repeat", "same_per_swtich")))) %>%
   filter(is.na(success)==FALSE) %>%
@@ -306,32 +307,48 @@ What about if we introduce modality into our discourse analysis? Are there any d
 There is a lot of information on these graphs, which makes them somewhat difficult to read. It seems like the use of modality is pretty consistent across type of discourse, except for children of age 14mos. There may be something interesting happening at that age point only. 
 
 ```{r discourse_modality}
-ggplot(aes(x=success, fill=modality), data=discourse_success)+
-  geom_bar(position="dodge")+
-  theme(legend.position="bottom")+
-  facet_grid(person~age)+
-  ggtitle("age, person, modality, discourse type freq")+
-  scale_color_brewer(palette = "Set1")
-
-ggplot(aes(x=age, fill=modality), data=discourse_success)+
-  geom_bar(position="dodge")+
-  theme(legend.position="bottom")+
-  facet_grid(person~success)+
-  ggtitle("discourse type, person, modality, age freq")+
-  scale_color_brewer(palette = "Set1")
-
-mod_freq<-discourse_success %>%
-  group_by(person, age, success, modality) %>%
+discourse_modality_prop <- discourse_success %>%
+  group_by(age, person, modality, success) %>%
   summarise(n=n()) %>%
+  group_by(age, person, modality) %>%
   mutate(prop= n/sum(n))
 
-ggplot(aes(x=success, y=prop, color=modality, label=modality), data=mod_freq)+
-  geom_point()+
-  geom_line(aes(group=modality))+
-  theme(legend.position="bottom")+
-  facet_grid(person~age)+
-  ggtitle("age, person, modality, discourse type proportions")+
-  scale_color_brewer(palette = "Set1")
+ggplot(discourse_modality_prop, aes(x=age, y=prop, fill=success)) + 
+  facet_grid(modality~person) + 
+  geom_bar(stat="identity", position="stack") + 
+  theme(legend.position="bottom") + 
+  scale_fill_brewer(palette="Set1")+
+  scale_x_continuous(breaks = unique(discourse_prop$age)) +
+  ggtitle("proportion of parent to child strategy at each age")
+
+
+ggplot(discourse_modality_prop, aes(x=age, y=prop, color=success)) + 
+  facet_grid(modality~person) + 
+  geom_line() + 
+  geom_point() +
+  theme(legend.position="bottom") + 
+  scale_color_brewer(palette="Set1")+
+  scale_x_continuous(breaks = unique(discourse_prop$age)) +
+  ggtitle("proportion of parent to child strategy at each age")
+
+
+ggplot(discourse_modality_prop, aes(x=age, y=prop, fill=modality)) + 
+  facet_grid(success~person) + 
+  geom_bar(stat="identity", position="stack") + 
+  theme(legend.position="bottom") + 
+  scale_fill_brewer(palette="Set1")+
+  scale_x_continuous(breaks = unique(discourse_prop$age)) +
+  ggtitle("proportion of parent to child strategy at each age")
+
+
+ggplot(discourse_modality_prop, aes(x=age, y=prop, color=modality)) + 
+  facet_grid(success~person) + 
+  geom_line() + 
+  geom_point() +
+  theme(legend.position="bottom") + 
+  scale_color_brewer(palette="Set1")+
+  scale_x_continuous(breaks = unique(discourse_prop$age)) +
+  ggtitle("proportion of parent to child strategy at each age")
 ```
 
 What is the purpose of repetition for children? Are they using it simply to practice a recently-learned word, or are they using it as an attention-getting mechanism? 
@@ -339,14 +356,16 @@ What is the purpose of repetition for children? Are they using it simply to prac
 ```{r repeat_data}
 repeat_data <- discourse_success %>%
   filter(person == "child")%>%
-  mutate(rep = ifelse(lag(success) == "repeat" & success != "repeat", 1, 0)) %>%
+  mutate(rep = ifelse(lag(success) == "repeat", "repeating", "not repeating")) %>%
   filter(is.na(rep)==FALSE) %>%
   group_by(rep, success) %>%
   summarise(n=n()) %>%
   mutate(prop = n/sum(n))
 
-ggplot(aes(x=success, y=prop), data=repeat_data)+
+ggplot(aes(x=success, y=prop, fill = success), data=repeat_data)+
   geom_bar(stat="identity")+
+  scale_fill_brewer(palette = "Set1") +
   facet_wrap(~rep)
 ```
 
+They do seem to do a lot of repeating...
