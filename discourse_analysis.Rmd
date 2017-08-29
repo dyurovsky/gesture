@@ -248,7 +248,7 @@ ggplot(discourse_success, aes(x=age, fill=success)) +
   ggtitle("discourse type (individual or interaction) by referent stability (same or different)")
 ```
 
-Does parent discourse responsiveness stay constant over age? Or is it larger for small children? 
+Does parent discourse responsiveness stay constant over age? Or is it larger for small children? Shows what proportion of time parents or children are spending with each kind of discourse (be careful about interpreting). Same graph as above, just in a different format
 
 ```{r prop_person_age}
 discourse_prop <- discourse_success %>%
@@ -266,20 +266,6 @@ ggplot(discourse_prop, aes(x=age, y=prop, fill=success)) +
   ggtitle("proportion of parent to child strategy at each age")
 ```
 
-Shows what proportion of time parents or children are spending with each kind of discourse (be careful about interpreting).
-
-```{r prop_people}
-ggplot(discourse_prop, aes(x=age, y=prop, color=success, label = success)) + 
-  facet_wrap(~person) + 
-  geom_line() + 
-  geom_point() + 
-  theme(legend.position="bottom") + 
-  scale_color_brewer(palette="Set1")+
-  scale_x_continuous(breaks = unique(discourse_prop$age),
-                     limits = c(14,30)) +
-  geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
-  ggtitle("proportion of parent to child strategy at each age")
-```
 
 What happens when the referent is first introduced into the session? How does that change the discourse type effects we have seen? This analysis is not meaningful mainly because of the way we defined discourse type (depends on the previous utterance). First references would only be applicable for referent switches. 
 
@@ -321,7 +307,6 @@ ggplot(discourse_modality_prop, aes(x=age, y=prop, fill=success)) +
   scale_x_continuous(breaks = unique(discourse_prop$age)) +
   ggtitle("proportion of parent to child strategy at each age")
 
-
 ggplot(discourse_modality_prop, aes(x=age, y=prop, color=success)) + 
   facet_grid(modality~person) + 
   geom_line() + 
@@ -331,7 +316,7 @@ ggplot(discourse_modality_prop, aes(x=age, y=prop, color=success)) +
   scale_x_continuous(breaks = unique(discourse_prop$age)) +
   ggtitle("proportion of parent to child strategy at each age")
 
-
+#it looks like there is something wrong here, because same_per_switch for parent >1
 ggplot(discourse_modality_prop, aes(x=age, y=prop, fill=modality)) + 
   facet_grid(success~person) + 
   geom_bar(stat="identity", position="stack") + 
