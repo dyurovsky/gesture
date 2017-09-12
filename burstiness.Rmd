@@ -25,6 +25,7 @@ library(data.table)
 library(ggplot2)
 library(forcats)
 library(feather)
+library(tidytext)
 
 opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
                error = FALSE, cache = TRUE, tidy = FALSE)
@@ -146,15 +147,26 @@ For making gleitman plots
 runs <- coded_responses %>%
   select(subj, age, referent, time) %>%
   arrange(subj, age, referent, time) %>%
+  group_by(subj, age, referent) %>%
   mutate(diff = time-lag(time)) %>%
   filter(diff < 10 & diff > 1)
 
-#NOTE: This is slow! Approx 12 mins. there is probably a better way...
 fixed_runs <- map(1:100, function(row) {
-  times <- 1:runs[row,]$diff-1 + runs[row,]$time
+  times <- 1:(runs[row,]$diff-1) + runs[row,]$time
   
   data_frame(time = times, subj = runs[row,]$subj, age = runs[row,]$age, 
              referent = runs[row,]$referent)}) %>%
   bind_rows() %>%
   bind_rows(runs)
 ```
+
+```{r}
+gleit<-fixed_runs %>%
+  filter(subj==29, age==14, time> 100, time<1000)#arbitrary choice
+
+ggplot(gleit, aes(x = as.factor(time), y = referent)) + 
+  geom_tile(color = "black") + 
+  theme(legend.position = "bottom")+
+  scale_x_discrete(breaks= c(seq(from = 1, to = 1000, by = 10)))
+```
+
