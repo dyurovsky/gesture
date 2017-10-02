@@ -21,7 +21,7 @@ library(lme4)
 library(directlabels)
 library(DT)
 library(broom)
-library(data.table)
+library(data.table) #r.leid
 library(ggplot2)
 library(forcats)
 library(feather)
@@ -155,7 +155,7 @@ ggplot(first_ref_all, aes(x = age, y = mean, color = isFirst, label = isFirst)) 
   ylab("refs per 16 utterances") + 
   scale_color_brewer(palette = "Set1") + 
   geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
-  scale_x_continuous(limits = c(12, 30))
+  scale_x_continuous(limits = c(12, 35))
 ```
 
 ```{r person_modality_first, fig.width = 8, fig.height = 5}
@@ -165,7 +165,7 @@ ggplot(first_ref_modality, aes(x= age, y = mean, color = isFirst, label = isFirs
   ylab("refs per 16 utterances") + 
   scale_color_brewer(palette = "Set1") + 
   geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
-  scale_x_continuous(limits = c(12, 30))
+  scale_x_continuous(limits = c(12, 35))
 ```
 
 ## Comparisons to previous discourse analyses 
@@ -234,7 +234,9 @@ discourse_success <- coded_responses %>%
                           if_else(lag(person) != person & lag(referent) !=referent, "switch",
                                   if_else(lag(referent) == referent, "repeat", 
                                           "same_per_swtich")))) %>%
-  filter(!is.na(success)) #takes out first line of data so we have no NAs
+  filter(!is.na(success)) #takes out first line of data so we have no NAs 
+#when you try removing "mom", trends don't seem to change
+  
 ```
 
 
@@ -264,28 +266,6 @@ ggplot(discourse_prop, aes(x=age, y=prop, fill=success)) +
   scale_fill_brewer(palette="Set1")+
   scale_x_continuous(breaks = unique(discourse_prop$age)) +
   ggtitle("proportion of parent to child strategy at each age")
-```
-
-
-What happens when the referent is first introduced into the session? How does that change the discourse type effects we have seen? This analysis is not meaningful mainly because of the way we defined discourse type (depends on the previous utterance). First references would only be applicable for referent switches. 
-
-```{r discourse_first}
-first_success<-coded_responses %>%
-  filter(referent != "mom") %>%
-  mutate(isFirst = ifelse(time2 %in% first_data$time2, "first","not first")) %>% 
-  mutate(success = ifelse(lag(person) != person & lag(referent)==referent, "success", ifelse(lag(person) != person & lag(referent) !=referent, "switch", ifelse(lag(referent)==referent, "repeat", "same_per_swtich")))) %>%
-  filter(is.na(success)==FALSE) %>%
-  group_by(person, age, isFirst, success) %>%
-  summarise(count = sum(is.na(referent)==FALSE))
-
-ggplot(first_success, aes(x = age, y = count, color = isFirst, label = isFirst)) + 
-  facet_grid(success~person) +
-  geom_point() +
-  geom_line()+
-  ylab("referent frequency") + 
-  scale_color_brewer(palette = "Set1")  +
-  geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
-  scale_x_continuous(limits = c(12, 30))
 ```
 
 What about if we introduce modality into our discourse analysis? Are there any differences in the frequency of repetitions, same_per_switches, successes, or switches based on what modality the person is using?
@@ -338,19 +318,3 @@ ggplot(discourse_modality_prop, aes(x=age, y=prop, color=modality)) +
 
 What is the purpose of repetition for children? Are they using it simply to practice a recently-learned word, or are they using it as an attention-getting mechanism? 
 
-```{r repeat_data}
-repeat_data <- discourse_success %>%
-  filter(person == "child")%>%
-  mutate(rep = ifelse(lag(success) == "repeat", "repeating", "not repeating")) %>%
-  filter(is.na(rep)==FALSE) %>%
-  group_by(rep, success) %>%
-  summarise(n=n()) %>%
-  mutate(prop = n/sum(n))
-
-ggplot(aes(x=success, y=prop, fill = success), data=repeat_data)+
-  geom_bar(stat="identity")+
-  scale_fill_brewer(palette = "Set1") +
-  facet_wrap(~rep)
-```
-
-They do seem to do a lot of repeating...
