@@ -164,6 +164,10 @@ fixed_runs <- map(1:100, function(row) {
 gleit<-fixed_runs %>%
   filter(subj==29, age==26)#arbitrary choice
 
+ggplot(gleit, aes(x = as.factor(time), y = referent)) + 
+  geom_tile(color = "black") + 
+  theme(legend.position = "bottom") 
+
 gleit_order <- gleit %>%
   ungroup() %>%
   group_by(referent) %>%
@@ -178,5 +182,6 @@ ggplot(gleit_ordered, aes(x = as.factor(time), y = referent)) +
   geom_tile(fill = "black", color = "white") + 
   theme(legend.position = "none")+
   scale_x_discrete(breaks= c(seq(from = 1, to = 1000, by = 10)))
+
 ```
 

@@ -45,7 +45,7 @@ theme_set(theme_dy())
 Setting up data
 ```{r load_data}
 # Original data
-loaded_subjs <- read_feather("feathers/loaded_subjs.feather")
+loaded_subjs <- read_feather('feathers/loaded_subjs.feather')
 # Referents and their frequencies
 referents <- read_feather("feathers/referents.feather")
 # End result of splitting referents and coding modality
@@ -155,7 +155,11 @@ ggplot(first_ref_all, aes(x = age, y = mean, color = isFirst, label = isFirst)) 
   ylab("refs per 16 utterances") + 
   scale_color_brewer(palette = "Set1") + 
   geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
+<<<<<<< HEAD
   scale_x_continuous(limits = c(12, 35))
+=======
+  scale_x_continuous(limits = c(12, 40))
+>>>>>>> fe11525c2cf3315622848a643ce4bbbb0d1790d0
 ```
 
 ```{r person_modality_first, fig.width = 8, fig.height = 5}
@@ -194,22 +198,6 @@ It seems like there are the most strings of at least 3 of same referent at age 2
 
 How do these data compare to Frank et al? They used only speech data with a much smaller sample of referents, 5-15 minute lengths of play (how long are ours?) with a total corpus of 5,000 utterances (smaller) and found 6mos=88 discourse, 12mos=110, 18mos=107. We would expect them to have more repeated discourses because they have many fewer potential referents. This seems to be the case.
 
-Here is a gleitman plot that is actually interpretable, for giving an example of what a discourse might look like in the data:
-
-```{r gleitman_readable, fig.width = 8, fig.height = 4}
-discourse_2<-coded_responses %>%
-  mutate(lag_ref=lag(referent),
-         lag_lag_ref=lag(lag_ref)) %>%
-  filter(referent==lag_ref, lag_lag_ref == lag_ref) %>% #filter for strings of at least 3 same referent 
-  group_by(subj, age, referent, time) %>%
-  slice(1) %>%
-  filter(subj==33, age==22, time >500) #arbitrary choice
-
-ggplot(discourse_2, aes(x = time, y = referent, fill = person)) + 
-  geom_tile(color = "black") + 
-  theme(legend.position = "bottom")
-
-```
 
 ## Discourse structure
 
@@ -268,6 +256,31 @@ ggplot(discourse_prop, aes(x=age, y=prop, fill=success)) +
   ggtitle("proportion of parent to child strategy at each age")
 ```
 
+<<<<<<< HEAD
+=======
+
+What happens when the referent is first introduced into the session? How does that change the discourse type effects we have seen? This analysis is not meaningful mainly because of the way we defined discourse type (depends on the previous utterance). First references would only be applicable for referent switches. 
+
+```{r discourse_first}
+first_success<-coded_responses %>%
+  filter(referent != "mom") %>%
+  mutate(isFirst = ifelse(time2 %in% first_data$time2, "first","not first")) %>% 
+  mutate(success = ifelse(lag(person) != person & lag(referent)==referent, "success", ifelse(lag(person) != person & lag(referent) !=referent, "switch", ifelse(lag(referent)==referent, "repeat", "same_per_swtich")))) %>%
+  filter(is.na(success)==FALSE) %>%
+  group_by(person, age, isFirst, success) %>%
+  summarise(count = sum(is.na(referent)==FALSE))
+
+ggplot(first_success, aes(x = age, y = count, color = isFirst, label = isFirst)) +
+  facet_grid(success~person) +
+  geom_point() +
+  geom_line()+
+  ylab("referent frequency") + 
+  scale_color_brewer(palette = "Set1")  +
+  geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
+  scale_x_continuous(limits = c(12, 40))
+```
+
+>>>>>>> fe11525c2cf3315622848a643ce4bbbb0d1790d0
 What about if we introduce modality into our discourse analysis? Are there any differences in the frequency of repetitions, same_per_switches, successes, or switches based on what modality the person is using?
 
 There is a lot of information on these graphs, which makes them somewhat difficult to read. It seems like the use of modality is pretty consistent across type of discourse, except for children of age 14mos. There may be something interesting happening at that age point only. 
@@ -305,7 +318,6 @@ ggplot(discourse_modality_prop, aes(x=age, y=prop, fill=modality)) +
   scale_x_continuous(breaks = unique(discourse_prop$age)) +
   ggtitle("proportion of parent to child strategy at each age")
 
-
 ggplot(discourse_modality_prop, aes(x=age, y=prop, color=modality)) + 
   facet_grid(success~person) + 
   geom_line() + 
@@ -316,5 +328,8 @@ ggplot(discourse_modality_prop, aes(x=age, y=prop, color=modality)) +
   ggtitle("proportion of parent to child strategy at each age")
 ```
 
+<<<<<<< HEAD
 What is the purpose of repetition for children? Are they using it simply to practice a recently-learned word, or are they using it as an attention-getting mechanism? 
 
+=======
+>>>>>>> fe11525c2cf3315622848a643ce4bbbb0d1790d0
