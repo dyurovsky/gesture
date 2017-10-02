@@ -24,6 +24,8 @@ library(broom)
 library(data.table)
 library(ggplot2)
 library(forcats)
+library(feather)
+library(dplyr)
 
 opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
                error = FALSE, cache = TRUE, tidy = FALSE)
@@ -43,16 +45,12 @@ theme_set(theme_dy())
 
 Load in coded data and show how many children we have at each age
 ```{r load_data}
-files <-list.files("ldp_data/fixed_data/", 
-                   "*.csv", full.names = TRUE)
-
-loaded_subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
-  bind_rows() %>%
-  mutate(age = 10+session*4) %>%
-  mutate(time2=rownames(.)) %>%
-  group_by(subj, age) %>%
-  mutate(time = 1:n()) %>%
-  select(time, time2, subj, age, person, spoken_obj, gestured_obj, referent, gloss, chat) 
+#load in original data
+loaded_subjs <- read_feather('feathers/loaded_subjs.feather')
+#referent data 
+referents<-read_feather('feathers/referents.feather')
+#coded responses
+coded_responses<-read_feather('feathers/coded_responses.feather')
 
 demos <- loaded_subjs %>%
   select(subj,age) %>%
@@ -82,6 +80,8 @@ referents <- loaded_subjs %>%
   arrange(desc(freq)) %>%
   mutate(rank = 1:nrow(.)) %>%
   select(rank,referent, freq)
+
+write_feather(referents, 'feathers/referents.feather')
 
 referent_names <- datatable(referents, rownames = FALSE, width = 600)
 referent_names
@@ -192,13 +192,26 @@ coded_responses <- spread_referents %>%
   left_join(referents) %>%
   mutate(freq_cut = cut(log(freq), 4))
 
+write_feather(coded_responses, 'feathers/coded_responses.feather')
+
 modality_data <- coded_responses %>%
   group_by(person, age, subj, freq_cut, rank, freq, referent, modality, chat) %>%
   summarise(n = n()) %>%
   spread(modality, n, fill = 0)
 ```
 
+<<<<<<< HEAD
 Does parent/child production of reference in *both* modalities simultaneously changes with age and word frequency?
+=======
+These plots show the tradeoff between speech and gesture across ages for children and parents. 
+```{r speech_gesture_plot, fig.width=9, fig.height=4}
+plotting_data <- coded_responses %>%
+  group_by(person, age, subj, freq_cut, modality) %>%
+  summarise(n = n()) %>%
+  mutate(prob = n/sum(n)) %>%
+  group_by(person, age, modality, freq_cut) %>%
+  multi_boot_standard("prob")
+>>>>>>> fe11525c2cf3315622848a643ce4bbbb0d1790d0
 
 ```{r both_probabilities}
 both_data <- modality_data %>%
@@ -341,7 +354,7 @@ ggplot(aes(x = time, y = referent, fill =  interaction(person,modality)), data =
 #we want to see the probability of modality/person referencing something for the first time, not just if it is the same or different from the last referent 
 
 usage_data <- bind_rows(first_data, not_first_data) %>%
-  filter(freq>1) %>% #taking out referents that are only mentioned once changes nothing
+  filter(freq>1) %>% 
   group_by(subj, age, person, modality, first) %>%
   summarise(n = n()) %>% 
   group_by(age, subj, person, first) %>%
