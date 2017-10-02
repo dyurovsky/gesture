@@ -45,7 +45,7 @@ theme_set(theme_dy())
 Setting up data
 ```{r load_data}
 # Original data
-loaded_subjs <- read_feather("feathers/loaded_subjs.feather")
+loaded_subjs <- read_feather('feathers/loaded_subjs.feather')
 # Referents and their frequencies
 referents <- read_feather("feathers/referents.feather")
 # End result of splitting referents and coding modality
@@ -155,7 +155,7 @@ ggplot(first_ref_all, aes(x = age, y = mean, color = isFirst, label = isFirst)) 
   ylab("refs per 16 utterances") + 
   scale_color_brewer(palette = "Set1") + 
   geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
-  scale_x_continuous(limits = c(12, 30))
+  scale_x_continuous(limits = c(12, 40))
 ```
 
 ```{r person_modality_first, fig.width = 8, fig.height = 5}
@@ -194,22 +194,6 @@ It seems like there are the most strings of at least 3 of same referent at age 2
 
 How do these data compare to Frank et al? They used only speech data with a much smaller sample of referents, 5-15 minute lengths of play (how long are ours?) with a total corpus of 5,000 utterances (smaller) and found 6mos=88 discourse, 12mos=110, 18mos=107. We would expect them to have more repeated discourses because they have many fewer potential referents. This seems to be the case.
 
-Here is a gleitman plot that is actually interpretable, for giving an example of what a discourse might look like in the data:
-
-```{r gleitman_readable, fig.width = 8, fig.height = 4}
-discourse_2<-coded_responses %>%
-  mutate(lag_ref=lag(referent),
-         lag_lag_ref=lag(lag_ref)) %>%
-  filter(referent==lag_ref, lag_lag_ref == lag_ref) %>% #filter for strings of at least 3 same referent 
-  group_by(subj, age, referent, time) %>%
-  slice(1) %>%
-  filter(subj==33, age==22, time >500) #arbitrary choice
-
-ggplot(discourse_2, aes(x = time, y = referent, fill = person)) + 
-  geom_tile(color = "black") + 
-  theme(legend.position = "bottom")
-
-```
 
 ## Discourse structure
 
@@ -278,14 +262,14 @@ first_success<-coded_responses %>%
   group_by(person, age, isFirst, success) %>%
   summarise(count = sum(is.na(referent)==FALSE))
 
-ggplot(first_success, aes(x = age, y = count, color = isFirst, label = isFirst)) + 
+ggplot(first_success, aes(x = age, y = count, color = isFirst, label = isFirst)) +
   facet_grid(success~person) +
   geom_point() +
   geom_line()+
   ylab("referent frequency") + 
   scale_color_brewer(palette = "Set1")  +
   geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
-  scale_x_continuous(limits = c(12, 30))
+  scale_x_continuous(limits = c(12, 40))
 ```
 
 What about if we introduce modality into our discourse analysis? Are there any differences in the frequency of repetitions, same_per_switches, successes, or switches based on what modality the person is using?
@@ -325,7 +309,6 @@ ggplot(discourse_modality_prop, aes(x=age, y=prop, fill=modality)) +
   scale_x_continuous(breaks = unique(discourse_prop$age)) +
   ggtitle("proportion of parent to child strategy at each age")
 
-
 ggplot(discourse_modality_prop, aes(x=age, y=prop, color=modality)) + 
   facet_grid(success~person) + 
   geom_line() + 
@@ -336,21 +319,3 @@ ggplot(discourse_modality_prop, aes(x=age, y=prop, color=modality)) +
   ggtitle("proportion of parent to child strategy at each age")
 ```
 
-What is the purpose of repetition for children? Are they using it simply to practice a recently-learned word, or are they using it as an attention-getting mechanism? 
-
-```{r repeat_data}
-repeat_data <- discourse_success %>%
-  filter(person == "child")%>%
-  mutate(rep = ifelse(lag(success) == "repeat", "repeating", "not repeating")) %>%
-  filter(is.na(rep)==FALSE) %>%
-  group_by(rep, success) %>%
-  summarise(n=n()) %>%
-  mutate(prop = n/sum(n))
-
-ggplot(aes(x=success, y=prop, fill = success), data=repeat_data)+
-  geom_bar(stat="identity")+
-  scale_fill_brewer(palette = "Set1") +
-  facet_wrap(~rep)
-```
-
-They do seem to do a lot of repeating...
