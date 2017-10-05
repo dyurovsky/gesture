@@ -133,14 +133,17 @@ annotated_intervals <- coded_responses %>%
   mutate(total_refs = n(),
          predicted = total_refs/freq,
          prob_extreme = pexp(diff, rate = freq/total_refs, 
-                             lower.tail = F, log.p = T),
-         new_topic = prob_extreme < log(.05)) %>%
+                             lower.tail = T, log.p = T),
+         old_topic = prob_extreme < log(.05)) %>% #underestimates new_topic
   ungroup() %>%
   mutate(modality = factor(modality, levels = c("speech", "gesture", "both")))
 
-new_topic_model <- glmer(new_topic ~ age*person*modality + log(freq)  +
-                           (1|referent) + (1|subj), 
+old_topic_model <- glmer(old_topic ~ age*person*modality + log(freq)  +
+                            (1|subj), 
       family = "binomial", data = annotated_intervals)
+
+
+summary(old_topic_model)
 
 ```
 
