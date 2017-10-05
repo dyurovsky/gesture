@@ -117,13 +117,36 @@ intervals <- coded_responses %>%
   group_by(subj, age, referent) %>%
   arrange(time) %>%
   summarise(freq = n(), times = paste0(diff(as.numeric(time)), collapse = " ")) %>%
-  unnest_tokens(diff, times) %>%
+  unnest_tokens(diff, times)
+
+annotated_intervals <- coded_responses %>%
+  group_by(subj, age, referent) %>%
+  mutate(freq = n()) %>%
+  filter(freq > 1) %>%
+  arrange(subj, age, referent, time) %>%
+  slice(2:n()) %>%
+  ungroup() %>%
+  select(time, person, modality, freq_cut) %>%
+  bind_cols(intervals, .) %>%
   mutate(diff = as.numeric(diff)) %>%
   group_by(subj, age) %>%
   mutate(total_refs = n(),
-         predicted = total_refs/freq) %>%
-  group_by(age, subj, freq, referent)
+         predicted = total_refs/freq,
+         prob_extreme = pexp(diff, rate = freq/total_refs, 
+                             lower.tail = F, log.p = T),
+         new_topic = prob_extreme < log(.05)) %>%
+  ungroup() %>%
+  mutate(modality = factor(modality, levels = c("speech", "gesture", "both")))
 
+new_topic_model <- glmer(new_topic ~ age*person*modality + log(freq)  +
+                           (1|referent) + (1|subj), 
+      family = "binomial", data = annotated_intervals)
+
+```
+
+
+
+```{r}
 intervals %>%
   group_by(freq, age, subj, referent) %>%
   summarise(diff = median(diff-predicted)) %>%
@@ -138,8 +161,25 @@ intervals %>%
     theme_bw()
 
 
-diff_lm <- lmer((diff-predicted) ~ log(freq) + age + log(freq)*age + (log(freq)|subj), 
-                data = intervals)
+diff_lm <- lmer((diff-predicted) ~ log(freq) + age + log(freq)*age +
+                   (log(freq)|subj), data = intervals)
+
+
+intervals %>%
+  group_by(freq, age, subj, referent) %>%
+  summarise(new_topic = mean(new_topic)) %>%
+  summarise(new_topic = mean(new_topic)) %>%
+  summarise(new_topic = mean(new_topic)) %>%
+  ggplot(aes(x = freq, y = new_topic, color = as.factor(age))) + 
+    geom_point() + 
+    geom_smooth(se = FALSE, method = "lm") + 
+    scale_x_log10() + 
+  geom_hline(yintercept = 0, lty = 2) +
+  # scale_y_log10() +
+    theme_bw()
+
+diff_logit <- glmer(new_topic ~ log(freq) + age + (1|subj),
+                   family = "binomial", data = intervals)
 ```
 
 For making gleitman plots
