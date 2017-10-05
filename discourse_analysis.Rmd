@@ -155,11 +155,8 @@ ggplot(first_ref_all, aes(x = age, y = mean, color = isFirst, label = isFirst)) 
   ylab("refs per 16 utterances") + 
   scale_color_brewer(palette = "Set1") + 
   geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
-<<<<<<< HEAD
-  scale_x_continuous(limits = c(12, 35))
-=======
   scale_x_continuous(limits = c(12, 40))
->>>>>>> fe11525c2cf3315622848a643ce4bbbb0d1790d0
+
 ```
 
 ```{r person_modality_first, fig.width = 8, fig.height = 5}
@@ -229,6 +226,7 @@ discourse_success <- coded_responses %>%
 
 
 ```{r discourse_success_plot, fig.width = 6, fig.height = 4}
+#keep in mind that at age = 30, missing one data file (subj=59)
 ggplot(discourse_success, aes(x=age, fill=success)) + 
   facet_wrap(~person)+
   geom_bar(position = "stack")+
@@ -256,9 +254,6 @@ ggplot(discourse_prop, aes(x=age, y=prop, fill=success)) +
   ggtitle("proportion of parent to child strategy at each age")
 ```
 
-<<<<<<< HEAD
-=======
-
 What happens when the referent is first introduced into the session? How does that change the discourse type effects we have seen? This analysis is not meaningful mainly because of the way we defined discourse type (depends on the previous utterance). First references would only be applicable for referent switches. 
 
 ```{r discourse_first}
@@ -280,7 +275,6 @@ ggplot(first_success, aes(x = age, y = count, color = isFirst, label = isFirst))
   scale_x_continuous(limits = c(12, 40))
 ```
 
->>>>>>> fe11525c2cf3315622848a643ce4bbbb0d1790d0
 What about if we introduce modality into our discourse analysis? Are there any differences in the frequency of repetitions, same_per_switches, successes, or switches based on what modality the person is using?
 
 There is a lot of information on these graphs, which makes them somewhat difficult to read. It seems like the use of modality is pretty consistent across type of discourse, except for children of age 14mos. There may be something interesting happening at that age point only. 
@@ -328,8 +322,4 @@ ggplot(discourse_modality_prop, aes(x=age, y=prop, color=modality)) +
   ggtitle("proportion of parent to child strategy at each age")
 ```
 
-<<<<<<< HEAD
 What is the purpose of repetition for children? Are they using it simply to practice a recently-learned word, or are they using it as an attention-getting mechanism? 
-
-=======
->>>>>>> fe11525c2cf3315622848a643ce4bbbb0d1790d0

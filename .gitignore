@@ -20,3 +20,10 @@ vignettes/*.pdf
 
 # Mac Files
 .DS_Store
+
+# Data files
+ldp_data/*
+
+# R Cache
+*_files/*
+*_cache/*

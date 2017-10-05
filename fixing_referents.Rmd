@@ -2,64 +2,44 @@
 title: "Fixing Gesture Data Mistakes"
 output: html_notebook
 ---
-
-```{r load_libraries}
+```{r}
 library(data.table)
 library(tidyverse)
+library(feather)
 ```
 
+
 ```{r establish referent changes}
+x1<-c("ahir", "ardvark", "at", "batteries", "bbug", "beans", "bicycle", "boo", "boo_boo", "brown_page", "butterly", "caker", "CD", "cerea", "chick", "chicken_nugget, french_fry", "chik", "chil", "chld", "chiristmas_tree", "cirle", "digger", "dump_truck", "eg", "fae", "fiit", "fire_engine", "garbgage", "girlg", "grandma", "hild", "hippo", "ice_crema", "jackbot", "jacker", "jack_box", "key, child", "motorcycyle", "mushrooom", "mustach", "noodel", "oowd", "orange)juice", "pajama", "pajams", "peah", "people", "platn", "play_dough", "pocekt", "potty", "rasin", "refriegerator", "scissor", "seleeve", "wc", "yellow_page", "rubber_ruck", "scrw")
 
-# Coding errors
-x1 <- c("mom; ahir", "ardvark", "dog; at", "batteries", "nose; bbug", 
-        "beans; broccoli", "cow; boo", "boo_boo", "butterly", "caker", "CD", 
-        "cerea", "chick", "chik", "chil", "chld", 
-        "chiristmas_tree; engine; train", "cirle", "eg", "fae", "garbgage", 
-        "girlg", "mom; hild", "ice_crema", "jackbot", 
-        "jacker", "motorcycyle", "mushrooom", "mustach", "noodel", "oowd", 
-        "orange)juice", "peah", "people", "mom; platn", "refriegerator",
-        "scissor", "arm; seleeve", "wc", "chicken_nugget, french_fry", "boz", "cantelope", "eggplante", "nob", "pliers", "rabibit", "rubber_ruck", "scrw", "seleeve", "qater", "platn", "piant", "macine", "lawn_mower", "hant", "hild", "dipaer", "caryon", "bbug", "adrvark")
+y1<-c("hair", "aardvark", " ","battery", "bug", "bean", "bike", "cut", "cut", "page", "butterfly", "cake", "cd", "cereal", "chicken", "chicken_nugget", "chicken", "child", "child", "christmas_tree", "circle", "digger_truck", "dumptruck", "egg", "face", "", "firetruck", "garbage", "girl", "grandmother", "child", "hippopotamus", "ice_cream", "jackpot", "jacket", "jackinthebox", "key", "motorcycle", "mushroom", "mustache", "noodle", "", "orange_juice", "pajamas", "pajamas", "pea", "person", "plate", "playdoh", "pocket", "toilet", "raisin", "refrigerator", "scissors", "sleeve","", "page", "rubber_duck", "screw")
 
-# Fixed referents
-y1 <- c("mom; hair", "aardvark", "dog; cat","battery", "nose; bug", 
-        "bean; broccoli", "cow; book", "cut", "butterfly", "cake", "cd", 
-        "cereal", "chicken", "chicken", "child", "child", 
-        "christmas_tree; engine; train", "circle", "egg", "face", "garbage",
-        "girl", "mom; child",  "ice_cream", "jackpot", 
-        "jacket", "motorcycle", "mushroom", "mustache", "noodle", "wood",
-        "orange_juice", "peach", "person", "mom; plant", "refrigerator", 
-        "scissors", "arm, sleeve","wax", "chicken_nugget; french_fry", "box", "canteloupe", "eggplant", "knob", "plier", "rabbit", "rubber_duck", "screw", "sleeve", "", "plant", "paint", "machine", "lawnmower", "hand", "child", "diaper", "crayon", "bug", "aardvark")
-
-referent_changes <- data_frame(referent=x1, fix_referent=y1)
-referent_changes
+referent_changes<-data_frame(referent=x1, fix_referent=y1)
 ```
 
 ```{r fix referent changes}
 files <-list.files("ldp_data/coded_data/", 
                    "*.csv", full.names = TRUE)
 
-loaded_subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
+subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
   bind_rows() %>%
   mutate(rownum = 1:nrow(.))
 
-# Grab the sections of the transcripts that have these errors
-fixed_referents <- loaded_subjs %>%
+fixed_referents <- subjs %>%
   filter(referent %in% referent_changes$referent) %>%
   left_join(referent_changes) %>%
   select(-referent) %>%
   rename(referent = fix_referent) %>%
-  bind_rows(filter(loaded_subjs, !rownum %in% .$rownum)) %>%
+  bind_rows(filter(subjs, !rownum %in% .$rownum)) %>%
   arrange(rownum) %>%
   select(-rownum)
   
 cols <- names(fixed_referents) 
 
-# Rearrange table to have the same column order as original files
 arranged_referents <- fixed_referents %>%
   select_(.dots = cols[c(1:(length(cols)-2), length(cols), length(cols)-1) ])
 
-# Split by subject/session
-split_referents <- arranged_referents %>% split(paste(.$subj, .$session, sep = "_"))
+split_refernts <- arranged_referents %>% split(paste(.$subj, .$session, sep = "_"))
 
 write_referents <- function(df) {
   session <- df[1,"session"]
@@ -67,7 +47,22 @@ write_referents <- function(df) {
   
   write_csv(df, paste0("ldp_data/fixed_data/", subj, "_", session, ".csv"), na = "")
 }
+walk(split_refernts, write_referents)
 
-walk(split_referents, write_referents)
+```
+
+```{r}
+files <-list.files("ldp_data/fixed_data/", 
+                   "*.csv", full.names = TRUE)
+
+subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
+  bind_rows() %>%
+  mutate(age = 10+session*4) %>%
+  mutate(time2=rownames(.)) %>%
+  group_by(subj, age) %>%
+  mutate(time = 1:n()) %>%
+  select(time, time2, subj, age, person, spoken_obj, gestured_obj, referent, gloss, chat) 
+
+write_feather(subjs, 'feathers/loaded_subjs.feather')
 ```
 

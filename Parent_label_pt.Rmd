@@ -8,7 +8,8 @@ output: word_document
 #does frequency of label pointing stay the same over time? Or do parents use label pointing more for younger kids who know less words? Does label pointing increase for words that are less frequent?
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(tidyverse)
 ```
 
 ## R Markdown
