@@ -162,7 +162,7 @@ fixed_runs <- map(1:100, function(row) {
 
 ```{r}
 gleit<-fixed_runs %>%
-  filter(subj==29, age==26)#arbitrary choice
+  filter(subj==29, age==22)#arbitrary choice
 
 ggplot(gleit, aes(x = as.factor(time), y = referent)) + 
   geom_tile(color = "black") + 

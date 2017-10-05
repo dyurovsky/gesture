@@ -15,7 +15,6 @@ output:
 # load packages
 library(knitr)
 library(tidyverse)
-library(langcog)
 library(stringr) 
 library(lme4)
 library(directlabels)
@@ -24,6 +23,7 @@ library(broom)
 library(data.table)
 library(ggplot2)
 library(forcats)
+library(tidyboot)
 
 opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
                error = FALSE, cache = TRUE, tidy = FALSE)
@@ -347,7 +347,7 @@ usage_data <- bind_rows(first_data, not_first_data) %>%
   group_by(age, subj, person, first) %>%
   mutate(n = n/sum(n)) %>% #probability
   group_by(age, person, modality, first) %>%
-  multi_boot_standard("n")  
+  tidyboot_mean(n)  
 
 #from this plot, we can see that for the children < 26mos, they are more likely to gesture to an object if it is the first utterance versus not first utterance, and they are also more likely to both gesutre/speech to the object if it is the first utternace. They are less likely to use speech as the first reference. The confidence intervals show that these relationships are significant
 ggplot(usage_data, aes(x = age, y = mean, color = modality,
@@ -392,13 +392,14 @@ plotting_data <- coded_responses %>%
   summarise(n = n()) %>%
   mutate(prob = n/sum(n)) %>%
   group_by(person, age, modality, freq_cut) %>%
-  multi_boot_standard("prob")
+  tidyboot_mean(prob)
 
 ggplot(plotting_data, aes(x = as.numeric(freq_cut), y = mean, color = modality,
                           label = modality)) +
   facet_grid(person ~ age) + 
   geom_pointrange(aes(ymax = ci_upper, ymin = ci_lower), 
                   position = position_dodge(.25)) + 
+  geom_line() + 
   scale_color_brewer(palette = "Set1") +
   geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
   scale_x_continuous(limits = c(.5, 5.7),
@@ -419,6 +420,7 @@ tidy_table <- function(mermod) {
 child_lm <- glmer(cbind(speech, gesture) ~ age * log(freq) + 
                     (1|referent) + (1|subj), 
       data = filter(modality_data, person == "child"),
+      control = glmerControl(optimizer = "bobyqa"),
       family = "binomial")
 
 datatable(tidy_table(child_lm), rownames = FALSE, 
@@ -427,6 +429,7 @@ datatable(tidy_table(child_lm), rownames = FALSE,
 parent_lm <- glmer(cbind(speech, gesture) ~ age + log(freq) + 
                     (1|referent) + (1|subj), 
       data = filter(modality_data, person == "parent"),
+      control = glmerControl(optimizer = "bobyqa"),
       family = "binomial")
 
 datatable(tidy_table(parent_lm), rownames = FALSE, 
