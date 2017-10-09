@@ -46,13 +46,14 @@ theme_set(theme_dy())
 Setting up data
 ```{r load_data}
 # Original data
-loaded_subjs <- read_feather("feathers/loaded_subjs.feather")
+loaded_subjs <- read_feather("feathers/loaded_subjs_full.feather")
 # Referents and their frequencies
 referents <- read_feather("feathers/referents.feather")
 # End result of splitting referents and coding modality
 coded_responses <- read_feather("feathers/coded_responses.feather")
 ```
 
+##Zipfian Distributions 
 
 ```{r zipfs}
 person_freqs <- coded_responses %>%
@@ -70,7 +71,7 @@ ranks <- person_freqs %>%
 
 freq_ranks <- left_join(person_freqs, ranks)
 
-
+#modality and age
 ggplot(filter(freq_ranks, modality != "both"), 
        aes(x = rank, y = person_modality_n, 
                   color = as.factor(age), linetype = modality)) + 
@@ -81,7 +82,6 @@ ggplot(filter(freq_ranks, modality != "both"),
   scale_y_log10() +
   theme_classic()
    
-
 person_zipfs <- freq_ranks %>%  
   filter(modality != "both") %>%
   group_by(person, modality) %>%
@@ -111,6 +111,10 @@ ggplot(filter(person_zipfs, term %in% c("(Intercept)", "age", "log(rank)", "log(
   theme_bw()
 ```
 
+##Main Topic Analysis 
+Here, we wanted to see if we could break down the data for if it introduced a new topic or not. The topics were marked by whether the difference between successive mentions of the same topic was greater or less than predicted under a random-chance frequency-dependent model. In this analysis, we underestimated what was included in a topic by marking referents that were mentioned significantly sooner than expected as being part of the same topic. This underestimation was so great that for some referents, even if the difference was 1 it was not classified as in the same topic. 
+
+We then fit a model to see if factors like age, modality, and person (parent/child) were significant in predicting whether a referent was part of the same topic. 
 
 ```{r intervals}
 intervals <- coded_responses %>%
@@ -147,8 +151,105 @@ summary(old_topic_model)
 
 ```
 
+```{r- one way representations}
+#age/old_topic--model says that as age increases, # of old_topics decrease
+#is probably masked by other effects
+#one of the problems we might have is just that the number/proportion of old_topic items is changing with age (bell-shape, more old topics at middle ages and not beginning or end)
+age_old_topic<-annotated_intervals %>%
+  group_by(age, old_topic) %>%
+  summarise(n = n()) %>% 
+  mutate(prob = n/sum(n)) 
 
+ggplot(age_old_topic, aes(x = age, y = prob, color=old_topic)) + 
+  geom_point(stat="identity") +
+  geom_line()+
+  scale_x_continuous(breaks= c(14, 18, 22, 26, 30, 34)) +
+  theme(legend.position= "bottom") + 
+  ylab("old_topic proportion") +
+  ggtitle("Age vs. Old_Topic")
 
+#modality vs. old_topic (not what expected)
+mod_old_topic<-annotated_intervals %>%
+  filter(modality != "both") %>%
+  group_by(modality, old_topic) %>%
+  summarise(n = n()) %>% 
+  mutate(prob = n/sum(n)) 
+
+ggplot(mod_old_topic, aes(x = modality, y = prob, fill=old_topic)) + 
+  geom_bar(stat="identity") +
+  theme(legend.position= "bottom") + 
+  ylab("old_topic proportion") +
+  ggtitle("Modality vs. Old_Topic")
+
+```
+
+```{r- two-way interaction representations}
+#age/person/old_topic
+person_old_topic<- annotated_intervals%>%
+  filter(modality != "both") %>%
+  group_by(age, person, old_topic) %>%
+  summarize(n=n()) %>%
+  mutate(prob=n/sum(n))
+
+ggplot(person_old_topic, aes(x = age, y = prob, fill=person)) + 
+  geom_bar(stat="identity", position="dodge") +
+  facet_wrap(~old_topic)+
+  scale_x_continuous(breaks= c(14, 18, 22, 26, 30, 34)) +
+  theme(legend.position= "bottom") + 
+  ylab("old_topic probability")
+
+#age/modality/old_topic
+modality_old_topic<- annotated_intervals%>%
+  filter(modality != "both") %>%
+  group_by(age, modality, old_topic) %>%
+  summarize(n=n()) %>%
+  mutate(prob=n/sum(n)) 
+
+ggplot(modality_old_topic, aes(x = age, y = prob, fill=modality)) + 
+  geom_bar(stat="identity", position="dodge") +
+  facet_wrap(~old_topic)+
+  scale_x_continuous(breaks= c(14, 18, 22, 26, 30, 34)) +
+  theme(legend.position= "bottom") + 
+  ylab("old_topic probability")
+
+#person/modality (AS EXPECTED)
+#modality:gesture reduces the effect of person:parent on prob old_topic to where it is only slightly negative
+modality_person_old_topic<- annotated_intervals%>%
+  filter(modality != "both") %>%
+  group_by(subj, person, modality, old_topic) %>%
+  summarize(n=n()) %>%
+  mutate(prob=n/sum(n)) 
+
+ggplot(modality_person_old_topic, aes(x = person, y = prob, fill=modality)) + 
+  geom_bar(stat="identity", position="dodge") +
+  facet_wrap(~old_topic)+
+  theme(legend.position= "bottom") + 
+  ylab("old_topic probability")
+```
+
+```{r- three way interaction representation}
+# is this possible? 
+#age/modality/person/old_topic
+#old_topic=TRUE, see proportion
+#age is x axis 
+
+three_way<-annotated_intervals %>%
+  filter(modality != "both") %>%
+  group_by(age, person, modality, old_topic) %>%
+  summarize(n=n()) %>%
+  mutate(prob=n/sum(n)) %>%
+  filter(old_topic==TRUE)
+
+#does this actually have any meaning? probably not
+ggplot(three_way, aes(x=age, y=modality, fill=prob)) +
+  geom_tile()+
+  scale_x_continuous(breaks= c(14, 18, 22, 26, 30, 34)) +
+  facet_grid(~person)+
+  theme(legend.position="bottom")
+
+```
+
+Old code that calculated predicted difference by using means. Has been replaced by above interval code
 ```{r}
 intervals %>%
   group_by(freq, age, subj, referent) %>%
@@ -185,7 +286,9 @@ diff_logit <- glmer(new_topic ~ log(freq) + age + (1|subj),
                    family = "binomial", data = intervals)
 ```
 
-For making gleitman plots
+##Gleitman Plots
+A way of representing how referents shift during a conversation. We tried to use these to see topic shifts but they were not entirely useful. 
+
 ```{r}
 runs <- coded_responses %>%
   select(subj, age, referent, time) %>%
@@ -206,10 +309,6 @@ fixed_runs <- map(1:100, function(row) {
 ```{r}
 gleit<-fixed_runs %>%
   filter(subj==29, age==22)#arbitrary choice
-
-ggplot(gleit, aes(x = as.factor(time), y = referent)) + 
-  geom_tile(color = "black") + 
-  theme(legend.position = "bottom") 
 
 gleit_order <- gleit %>%
   ungroup() %>%
