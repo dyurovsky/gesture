@@ -146,8 +146,46 @@ old_topic_model <- glmer(old_topic ~ age*person*modality + log(freq)  +
                             (1|subj), 
       family = "binomial", data = annotated_intervals)
 
+hist(exp(annotated_intervals$prob_extreme))
+
+old_topic_model_simple <- glmer(old_topic ~ scale(log(age)) * person * modality * scale(log(freq))  +
+                            (1|subj), 
+      family = "binomial", data = filter(annotated_intervals, modality != "both"))
+
+
+old_topic_model_parent <- glmer(old_topic ~ scale(log(age))  * scale(log(freq)) +
+                            (1|subj), 
+      family = "binomial", data = filter(annotated_intervals, modality != "both", person == "parent"))
+
+
+summary(old_topic_model_simple)
 
 summary(old_topic_model)
+
+old_topic_prob <- annotated_intervals %>%
+  group_by(age, person, subj) %>%
+  summarise(old_topic = mean(old_topic)) %>%
+  summarise(sem = sd(old_topic)/sqrt(n()-1), old_topic = mean(old_topic))
+
+
+ggplot(old_topic_prob, aes(x = age, y = old_topic, color = person, label= person)) + 
+  geom_pointrange(aes(ymin = old_topic - sem, ymax = old_topic + sem), position = position_dodge(.25)) + 
+  geom_dl(method = "smart.grid")
+
+old_topic_prob <- annotated_intervals %>%
+  filter(modality != "both") %>% 
+  group_by(age, modality,  person, freq_cut, subj, referent) %>% 
+  summarise(old_topic = mean(old_topic)) #%>%
+   summarise(old_topic = mean(old_topic))# %>%
+  # summarise(old_topic = mean(old_topic)) %>%
+  # summarise(old_topic = mean(old_topic))
+
+ggplot(old_topic_prob, aes(x = freq_cut, y = old_topic, color =modality, label = modality,
+                           group = modality)) + 
+  facet_grid(age~ person) +
+  geom_smooth() +
+  geom_dl(method = "last.qp")
+
 
 ```
 
