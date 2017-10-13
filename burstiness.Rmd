@@ -45,12 +45,14 @@ theme_set(theme_dy())
 
 Setting up data
 ```{r load_data}
+setwd("~/Documents/Github/gesture")
 # Original data
 loaded_subjs <- read_feather("feathers/loaded_subjs_full.feather")
 # Referents and their frequencies
 referents <- read_feather("feathers/referents.feather")
 # End result of splitting referents and coding modality
 coded_responses <- read_feather("feathers/coded_responses.feather")
+
 ```
 
 ##Zipfian Distributions 
@@ -138,7 +140,8 @@ annotated_intervals <- coded_responses %>%
          predicted = total_refs/freq,
          prob_extreme = pexp(diff, rate = freq/total_refs, 
                              lower.tail = T, log.p = T),
-         old_topic = prob_extreme < log(.05)) %>% #underestimates new_topic
+         old_topic = prob_extreme < log(.05),
+         topic = ifelse(prob_extreme > log(.95), "new_topic", ifelse(prob_extreme < log(.05), "old_topic", NA))) %>% #underestimates new_topic
   ungroup() %>%
   mutate(modality = factor(modality, levels = c("speech", "gesture", "both")))
 
@@ -189,36 +192,28 @@ ggplot(old_topic_prob, aes(x = freq_cut, y = old_topic, color =modality, label =
 
 ```
 
-```{r- one way representations}
-#age/old_topic--model says that as age increases, # of old_topics decrease
-#is probably masked by other effects
-#one of the problems we might have is just that the number/proportion of old_topic items is changing with age (bell-shape, more old topics at middle ages and not beginning or end)
-age_old_topic<-annotated_intervals %>%
-  group_by(age, old_topic) %>%
-  summarise(n = n()) %>% 
-  mutate(prob = n/sum(n)) 
+It is really difficult to represent the trends seen from the above model. Here are a few attempts:
 
-ggplot(age_old_topic, aes(x = age, y = prob, color=old_topic)) + 
-  geom_point(stat="identity") +
-  geom_line()+
+```{r- graphs}
+topic<-annotated_intervals %>%
+  group_by(age, person, topic) %>%
+  summarise(n=n()) %>%
+  mutate(prop=n/sum(n))
+
+#Topic (old/new/neither) probability
+ggplot(topic, aes(x=age, y=prop, fill=topic))+
+  geom_bar(stat="identity",position="dodge")+
+  facet_wrap(~person)+
+  scale_x_continuous(breaks= c(14, 18, 22, 26, 30, 34))+
+  theme(legend.position= "bottom")
+
+#also remember that we only have n=9 @ 30mos
+#Topic (old.new.neither), frequency
+ggplot(annotated_intervals, aes(x = age, fill=topic)) + 
+  geom_bar(position="dodge") +
+  facet_wrap(~person)+
   scale_x_continuous(breaks= c(14, 18, 22, 26, 30, 34)) +
-  theme(legend.position= "bottom") + 
-  ylab("old_topic proportion") +
-  ggtitle("Age vs. Old_Topic")
-
-#modality vs. old_topic (not what expected)
-mod_old_topic<-annotated_intervals %>%
-  filter(modality != "both") %>%
-  group_by(modality, old_topic) %>%
-  summarise(n = n()) %>% 
-  mutate(prob = n/sum(n)) 
-
-ggplot(mod_old_topic, aes(x = modality, y = prob, fill=old_topic)) + 
-  geom_bar(stat="identity") +
-  theme(legend.position= "bottom") + 
-  ylab("old_topic proportion") +
-  ggtitle("Modality vs. Old_Topic")
-
+  theme(legend.position= "bottom")
 ```
 
 ```{r- two-way interaction representations}
@@ -323,6 +318,28 @@ intervals %>%
 diff_logit <- glmer(new_topic ~ log(freq) + age + (1|subj),
                    family = "binomial", data = intervals)
 ```
+##Similarity Judgments
+Along with our attempts to divide discourse up into topics, we can look at referent similarity as a measure of whether it is in the same topic or not. 
+```{r}
+MEN_data<-read.table("MEN_dataset_lemma_form_full") 
+
+ref_list <- sapply(1:nrow(MEN_data),function(x) paste0("referent",x))
+
+similarity_data<-MEN_data %>%
+  separate(V1, sep="-", ref_list, fill="right") %>%
+  gather_("number", "V1", ref_list) %>%
+  separate(V2, sep="-", ref_list, fill="right") %>%
+  gather("number2", "V2", ref_list) %>%
+  mutate(number= NULL, number2=NULL) %>%
+  select(V1, V2, V3)
+
+similarity<-referents %>%
+  mutate(match= ifelse(referent %in% similarity_data$V1 | referent %in% similarity_data$V2, "Match", "No Match"))
+
+sum(similarity$match=="No Match")
+
+
+```
 
 ##Gleitman Plots
 A way of representing how referents shift during a conversation. We tried to use these to see topic shifts but they were not entirely useful. 
@@ -344,9 +361,21 @@ fixed_runs <- map(1:100, function(row) {
   bind_rows(runs)
 ```
 
+```{r similarity word packs}
+food_words<- c("pepper","strawberry","knife","egg", "pot", "lid","refrigerator", "eggplant", "kiwi", "fork","cup","apple","casserole","lemon","green_bean", "mustard","onion","carrot","soup", "food", "juice", "spoon", "plate", "orange", "popsicle", "cookie", "ice_cream", "milk", "roast", "meat", "plum", "yogurt", "hash_brown", "grape", "hamburger", "pickle", "candy", "soda", "cheese", "turkey", "chocolate", "cheeto", "cereal", "chip", "milk", "shortcake", "jellybean", "coffee", "tea", "sugar", "cheerio")
+animal_words<-c("pig", "cow", "fish", "horse", "turtle", "duck", "farm", "mouse", "teddy_bear", "peacock", "monkey", "dog", "cat", "bear", "ladybug", "alligator", "toucan", "rabbit", "bug", "cow", "octopus", "wolf", "bird", "giraffe", "tail", "gorilla", "orangutan", "flamingo", "dinosaur", "lion", "elephant", "animal", "walrus", "penguin")
+baby_words<-c("baby", "cradle", "stroller", "bottle", "rattle", "diaper", "bib")
+body_words<-c("eye", "hand", "foot", "arm", "back", "face", "mouth", "tooth", "leg", "body", "nose", "neck", "knee", "head", "finger", "stomach", "hair", "hip")
+basic_words<-c("ball", "bag", "chair", "school", "circle", "car", "ground", "bus", "man", "tree", "square", "triangle", "pen", "button", "book", "floor", "water", "hole", "tree", "box")
+home_words<-c("tv", "couch", "door", "bed", "garbage", "phone", "kitchen", "remote", "vacuum", "towel", "bathroom", "room", "bedroom", "wall", "mop", "potty", "toothpaste", "bathtub", "table", "fireplace", "shelf")
+toy_words<-c("truck", "doll", "jumprope", "toy", "toybox", "puzzle", "puzzle_piece", "draw_board", "slide", "stencil", "block", "crayon", "bubble")
+people_words<-c("boy", "mom", "dad", "sister", "brother", "grandmother", "grandfather", "aunt", "uncle", "child", "teacher", "girl", "great_aunt", "zookeeper_wife")
+clothes_words<-c("belt", "shorts", "shirt", "hat", "glasses", "sunglasses", "sock", "slipper", "boot", "pants", "watch", "gown", "sweater", "dress", "necklace")
+```
+
 ```{r}
 gleit<-fixed_runs %>%
-  filter(subj==29, age==22)#arbitrary choice
+  filter(subj==33, age==26)#arbitrary choice
 
 gleit_order <- gleit %>%
   ungroup() %>%
@@ -356,11 +385,12 @@ gleit_order <- gleit %>%
   arrange(time) 
 
 gleit_ordered <- gleit %>%
-  mutate(referent = factor(referent, levels = gleit_order$referent))
+  mutate(referent = factor(referent, levels = gleit_order$referent)) %>%
+  mutate(topic = ifelse(referent %in% food_words,  "Food", ifelse(referent %in% animal_words, "Animal", ifelse(referent %in% body_words, "Body", ifelse(referent %in% basic_words, "Basic", ifelse(referent %in% baby_words, "Baby", ifelse(referent %in% home_words, "Home", ifelse(referent %in% toy_words, "Toy", ifelse(referent %in% people_words, "Person", ifelse(referent %in% clothes_words, "Clothes", "Other"))))))))))
 
-ggplot(gleit_ordered, aes(x = as.factor(time), y = referent)) + 
-  geom_tile(fill = "black", color = "white") + 
-  theme(legend.position = "none")+
+ggplot(gleit_ordered, aes(x = as.factor(time), y = referent, fill=topic)) + 
+  geom_tile(color = "white") + 
+  theme(legend.position = "bottom")+
   scale_x_discrete(breaks= c(seq(from = 1, to = 1000, by = 10)))
 
 ```
