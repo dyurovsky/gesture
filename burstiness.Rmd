@@ -55,7 +55,7 @@ coded_responses <- read_feather("feathers/coded_responses.feather")
 ```
 
 ##Zipfian Distributions 
-
+Tried to create these to show trends in burstiness of the data, but it is hard to gleam any general knowledge from graphs.
 ```{r zipfs}
 person_freqs <- coded_responses %>%
   group_by(subj, age, person, modality, referent) %>%
@@ -140,36 +140,39 @@ annotated_intervals <- coded_responses %>%
          prob_extreme = pexp(diff, rate = freq/total_refs, 
                              lower.tail = T, log.p = T),
          old_topic = prob_extreme < log(.05),
-         topic = ifelse(prob_extreme > log(.95), "new_topic", ifelse(prob_extreme < log(.05), "old_topic", NA))) %>% #underestimates new_topic
+         topic = ifelse(prob_extreme < log(.05), "old_topic", NA)) %>% #underestimates new_topic
   ungroup() %>%
   mutate(modality = factor(modality, levels = c("speech", "gesture", "both")))
 
-old_topic_model <- glmer(old_topic ~ age*person*modality + log(freq)  +
-                            (1|subj), 
-      family = "binomial", data = annotated_intervals)
-
 hist(exp(annotated_intervals$prob_extreme))
-
-old_topic_model_simple <- glmer(old_topic ~ scale(log(age)) * person * modality * scale(log(freq))  +
-                            (1|subj), 
-      family = "binomial", data = filter(annotated_intervals, modality != "both"))
-
-
-old_topic_model_parent <- glmer(old_topic ~ scale(log(age))  * scale(log(freq)) +
-                            (1|subj), 
-      family = "binomial", data = filter(annotated_intervals, modality != "both", person == "parent"))
-
-
-summary(old_topic_model_simple)
-
-summary(old_topic_model)
 
 old_topic_prob <- annotated_intervals %>%
   group_by(age, person, subj) %>%
   summarise(old_topic = mean(old_topic)) %>%
   summarise(sem = sd(old_topic)/sqrt(n()-1), old_topic = mean(old_topic))
+```
 
+```{r models}
+old_topic_model <- glmer(old_topic ~ age*person*modality + log(freq)  +
+                            (1|subj), 
+      family = "binomial", data = annotated_intervals)
 
+old_topic_model_simple <- glmer(old_topic ~ scale(log(age)) * person * modality * scale(log(freq))  +
+                            (1|subj), 
+      family = "binomial", data = filter(annotated_intervals, modality != "both"))
+
+summary(old_topic_model_simple)
+
+old_topic_model_parent <- glmer(old_topic ~ scale(log(age))  * scale(log(freq)) +
+                            (1|subj), 
+      family = "binomial", data = filter(annotated_intervals, modality != "both", person == "parent"))
+
+summary(old_topic_model_parent)
+```
+
+It is really difficult to represent the trends seen from the above model. Here are a few attempts:
+
+```{r graphs}
 ggplot(old_topic_prob, aes(x = age, y = old_topic, color = person, label= person)) + 
   geom_pointrange(aes(ymin = old_topic - sem, ymax = old_topic + sem), position = position_dodge(.25)) + 
   geom_dl(method = "smart.grid")
@@ -183,30 +186,30 @@ old_topic_prob <- annotated_intervals %>%
   # summarise(old_topic = mean(old_topic))
 
 ggplot(old_topic_prob, aes(x = freq_cut, y = old_topic, color =modality, label = modality,
-                           group = modality)) + 
+                         group = modality)) + 
   facet_grid(age~ person) +
   geom_smooth() +
   geom_dl(method = "last.qp")
-```
 
-It is really difficult to represent the trends seen from the above model. Here are a few attempts:
-
-```{r- graphs}
-topic<-annotated_intervals %>%
+topic_prop<-annotated_intervals %>%
+  mutate(topic=ifelse(prob_extreme > log(.95), "new_topic",ifelse(prob_extreme < log(.05), "old_topic", NA))) %>%
   group_by(age, person, topic) %>%
   summarise(n=n()) %>%
   mutate(prop=n/sum(n))
 
 #Topic (old/new/neither) probability
-ggplot(topic, aes(x=age, y=prop, fill=topic))+
+ggplot(topic_prop, aes(x=age, y=prop, fill=topic))+
   geom_bar(stat="identity",position="dodge")+
   facet_wrap(~person)+
   scale_x_continuous(breaks= c(14, 18, 22, 26, 30, 34))+
   theme(legend.position= "bottom")
 
 #also remember that we only have n=9 @ 30mos
+topic<- annotated_intervals %>%
+  mutate(topic=ifelse(prob_extreme > log(.95), "new_topic",ifelse(prob_extreme < log(.05), "old_topic", NA))) 
+
 #Topic (old.new.neither), frequency
-ggplot(annotated_intervals, aes(x = age, fill=topic)) + 
+ggplot(topic, aes(x = age, fill=topic)) + 
   geom_bar(position="dodge") +
   facet_wrap(~person)+
   scale_x_continuous(breaks= c(14, 18, 22, 26, 30, 34)) +
@@ -340,7 +343,7 @@ sum(similarity$match=="No Match")
 Unfortunately, this similarity data set only includes 350/1500 referents, so it is probably not the best computational comparison to use.
 
 ##Gleitman Plots
-A way of representing how referents shift during a conversation. We tried to use these to see topic shifts but they were not entirely useful. 
+A way of representing how referents shift during a conversation.
 
 ```{r}
 runs <- coded_responses %>%
@@ -359,27 +362,10 @@ fixed_runs <- map(1:100, function(row) {
   bind_rows(runs)
 ```
 
-It is surprising that so many of the referents fit into these neat packs 
-```{r similarity word packs}
-#made for subjects 33, 103 
-food_words<- c("pepper","strawberry","knife","egg", "pot", "lid","refrigerator", "eggplant", "kiwi", "fork","cup","apple","casserole","lemon","green_bean", "mustard","onion","carrot","soup", "food", "juice", "spoon", "plate", "orange", "popsicle", "cookie", "ice_cream", "milk", "roast", "meat", "plum", "yogurt", "hash_brown", "grape", "hamburger", "pickle", "candy", "soda", "cheese", "turkey", "chocolate", "cheeto", "cereal", "chip", "milk", "shortcake", "jellybean", "coffee", "tea", "sugar", "cheerio", "spatula", "frying_pan", "fry", "milk", "toast", "blueberry", "banana", "potpourri", "ketchup", "cookie_cutter", "oven_mitt", "fridge", "fruit", "bacon", "waffle", "tomato", "teapot", "toaster", "ice_pop", "vanilla", "watermelon", "fruit_snack")
-animal_words<-c("pig", "cow", "fish", "horse", "turtle", "duck", "farm", "mouse", "teddy_bear", "peacock", "monkey", "dog", "cat", "bear", "ladybug", "alligator", "toucan", "rabbit", "bug", "cow", "octopus", "wolf", "bird", "giraffe", "tail", "gorilla", "orangutan", "flamingo", "dinosaur", "lion", "elephant", "animal", "walrus", "penguin", "frog", "spider", "bee", "unicorn", "weasel", "zebra", "bunny",  "tiger", "camel", "squirrel", "rooster")
-baby_words<-c("baby", "cradle", "stroller", "bottle", "rattle", "diaper", "bib", "pacifier")
-body_words<-c("eye", "hand", "foot", "arm", "back", "face", "mouth", "tooth", "leg", "body", "nose", "neck", "knee", "head", "finger", "stomach", "hair", "hip", "cheek", "thumb", "belly_button", "toe", "butt", "shoulder")
-basic_words<-c("bag", "chair", "school", "circle", "car", "ground", "bus", "man", "tree", "square", "triangle", "pen", "button", "book", "floor", "water", "hole", "tree", "box", "shape", "top", "bottom")
-home_words<-c("tv", "couch", "door", "bed", "garbage", "phone", "kitchen", "remote", "vacuum", "towel", "bathroom", "room", "bedroom", "wall", "mop", "potty", "toothpaste", "bathtub", "table", "fireplace", "shelf", "key", "sink", "basement", "dining_room", "blanket", "window", "cupboard", "coathanger", "toilet", "mousepad", "tv", "radio", "tissue", "trash", "light", "paper_towel", "house", "clothesline", "receipt", "roof", "pillow", "chimney")
-toy_words<-c("truck", "doll", "jumprope", "toy", "toybox", "puzzle", "puzzle_piece", "draw_board", "slide", "stencil", "block", "crayon", "bubble", "paper", "card", "marker", "train", "rubber_duck", "hammer", "ball", "railroad_track", "jackinthebox", "tower", "castle", "pooh", "water_gun", "pinata", "balloon", "bubble_wand", "bucket", "playpen", "elmo")
-people_words<-c("boy", "mom", "dad", "sister", "brother", "grandmother", "grandfather", "aunt", "uncle", "child", "teacher", "girl", "great_aunt", "zookeeper_wife", "cousin", "kid")
-clothes_words<-c("belt", "shorts", "shirt", "hat", "glasses", "sunglasses", "sock", "slipper", "boot", "pants", "watch", "gown", "sweater", "dress", "necklace", "pocket", "hood", "sneaker", "shoe")
-nature_words<-c("tree", "flower", "windmill", "grass", "wing", "butterfly", "thunder", "lightning", "watering_can", "iris", "stick", "plant", "worm", "snail", "pond")
-```
-
 ```{r}
-fixed_runs<-fixed_runs %>%
-  mutate(topic = ifelse(referent %in% food_words,  "Food", ifelse(referent %in% animal_words, "Animal", ifelse(referent %in% body_words, "Body", ifelse(referent %in% basic_words, "Basic", ifelse(referent %in% baby_words, "Baby", ifelse(referent %in% home_words, "Home", ifelse(referent %in% toy_words, "Toy", ifelse(referent %in% people_words, "Person", ifelse(referent %in% clothes_words, "Clothes", ifelse(referent %in% nature_words, "Nature", "Other")))))))))))
-
 gleit<-fixed_runs %>%
-  filter(subj==103, age==34)#arbitrary choice
+  mutate(topic = ifelse(referent %in% food_words,  "Food", ifelse(referent %in% animal_words, "Animal", ifelse(referent %in% body_words, "Body", ifelse(referent %in% basic_words, "Basic", ifelse(referent %in% baby_words, "Baby", ifelse(referent %in% home_words, "Home", ifelse(referent %in% toy_words, "Toy", ifelse(referent %in% people_words, "Person", ifelse(referent %in% clothes_words, "Clothes", ifelse(referent %in% nature_words, "Nature", "Other"))))))))))) %>%
+  filter(subj==103, age==14)#arbitrary choice
 
 gleit_order <- gleit %>%
   ungroup() %>%
@@ -397,10 +383,25 @@ ggplot(gleit_ordered, aes(x = as.factor(time), y = referent, fill=topic)) +
   scale_x_discrete(breaks= c(seq(from = 1, to = 1000, by = 10)))
 ```
 
+It is surprising that so many of the referents fit into these neat packs 
+```{r similarity word packs}
+#made for subjects 33, 103 
+food_words<- c("pepper","strawberry","knife","egg", "pot", "lid","refrigerator", "eggplant", "kiwi", "fork","cup","apple","casserole","lemon","green_bean", "mustard","onion","carrot","soup", "food", "juice", "spoon", "plate", "orange", "popsicle", "cookie", "ice_cream", "milk", "roast", "meat", "plum", "yogurt", "hash_brown", "grape", "hamburger", "pickle", "candy", "soda", "cheese", "turkey", "chocolate", "cheeto", "cereal", "chip", "milk", "shortcake", "jellybean", "coffee", "tea", "sugar", "cheerio", "spatula", "frying_pan", "fry", "milk", "toast", "blueberry", "banana", "potpourri", "ketchup", "cookie_cutter", "oven_mitt", "fridge", "fruit", "bacon", "waffle", "tomato", "teapot", "toaster", "ice_pop", "vanilla", "watermelon", "fruit_snack")
+animal_words<-c("pig", "cow", "fish", "horse", "turtle", "duck", "farm", "mouse", "teddy_bear", "peacock", "monkey", "dog", "cat", "bear", "ladybug", "alligator", "toucan", "rabbit", "bug", "cow", "octopus", "wolf", "bird", "giraffe", "tail", "gorilla", "orangutan", "flamingo", "dinosaur", "lion", "elephant", "animal", "walrus", "penguin", "frog", "spider", "bee", "unicorn", "weasel", "zebra", "bunny",  "tiger", "camel", "squirrel", "rooster")
+baby_words<-c("baby", "cradle", "stroller", "bottle", "rattle", "diaper", "bib", "pacifier")
+body_words<-c("eye", "hand", "foot", "arm", "back", "face", "mouth", "tooth", "leg", "body", "nose", "neck", "knee", "head", "finger", "stomach", "hair", "hip", "cheek", "thumb", "belly_button", "toe", "butt", "shoulder")
+basic_words<-c("bag", "chair", "school", "circle", "car", "ground", "bus", "man", "tree", "square", "triangle", "pen", "button", "book", "floor", "water", "hole", "tree", "box", "shape", "top", "bottom")
+home_words<-c("tv", "couch", "door", "bed", "garbage", "phone", "kitchen", "remote", "vacuum", "towel", "bathroom", "room", "bedroom", "wall", "mop", "potty", "toothpaste", "bathtub", "table", "fireplace", "shelf", "key", "sink", "basement", "dining_room", "blanket", "window", "cupboard", "coathanger", "toilet", "mousepad", "tv", "radio", "tissue", "trash", "light", "paper_towel", "house", "clothesline", "receipt", "roof", "pillow", "chimney")
+toy_words<-c("truck", "doll", "jumprope", "toy", "toybox", "puzzle", "puzzle_piece", "draw_board", "slide", "stencil", "block", "crayon", "bubble", "paper", "card", "marker", "train", "rubber_duck", "hammer", "ball", "railroad_track", "jackinthebox", "tower", "castle", "pooh", "water_gun", "pinata", "balloon", "bubble_wand", "bucket", "playpen", "elmo")
+people_words<-c("boy", "mom", "dad", "sister", "brother", "grandmother", "grandfather", "aunt", "uncle", "child", "teacher", "girl", "great_aunt", "zookeeper_wife", "cousin", "kid")
+clothes_words<-c("belt", "shorts", "shirt", "hat", "glasses", "sunglasses", "sock", "slipper", "boot", "pants", "watch", "gown", "sweater", "dress", "necklace", "pocket", "hood", "sneaker", "shoe", "coat")
+nature_words<-c("tree", "flower", "windmill", "grass", "wing", "butterfly", "thunder", "lightning", "watering_can", "iris", "stick", "plant", "worm", "snail", "pond")
+```
+
 ```{r calculating topic switches}
-topic_runs <- fixed_runs %>%
-  filter(subj==33 | subj==103) %>%
-  select(subj, age, referent, time, topic) %>%
+topic_runs <- coded_responses %>%
+  mutate(topic = ifelse(referent %in% food_words,  "Food", ifelse(referent %in% animal_words, "Animal", ifelse(referent %in% body_words, "Body", ifelse(referent %in% basic_words, "Basic", ifelse(referent %in% baby_words, "Baby", ifelse(referent %in% home_words, "Home", ifelse(referent %in% toy_words, "Toy", ifelse(referent %in% people_words, "Person", ifelse(referent %in% clothes_words, "Clothes", ifelse(referent %in% nature_words, "Nature", "Other"))))))))))) %>%
+  select(subj, age, referent, time, topic) %>% #person data not included here, include?
   group_by(subj, age, referent) %>%
   arrange(subj, age, time) %>%
   group_by(subj, age, topic) %>%
@@ -415,10 +416,8 @@ fixed_topic_runs <- map(1:100, function(row) {
   bind_rows() %>%
   bind_rows(topic_runs)
 
-topic_gleit<-fixed_topic_runs %>%
-  filter(subj==103)
-
 topic_gleit_order <- topic_gleit %>%
+  filter(subj==33, age==14) %>%
   ungroup() %>%
   group_by(topic) %>%
   arrange(time) %>%
@@ -426,12 +425,22 @@ topic_gleit_order <- topic_gleit %>%
   arrange(time) 
 
 topic_gleit_ordered <- topic_gleit %>%
-  mutate(referent = factor(topic, levels = topic_gleit_order$topic))
-  
+  mutate(topic = factor(topic, levels = topic_gleit_order$topic))
+
+#topics are all over the place!  
 ggplot(topic_gleit_ordered, aes(x = as.factor(time), y = topic)) + 
   geom_tile(color = "white", show.legend=TRUE) + 
-  facet_wrap(~age)+
   theme_bw()+
   scale_x_discrete(breaks= c(seq(from = 1, to = 1000, by = 10)))
+```
+
+```{r topic trends}
+topic2<- fixed_topic_runs %>%
+  filter(subj==103| subj==33)
+
+ggplot(topic2, aes(x=topic, label=topic, fill=topic))+
+  geom_bar(position="dodge")+
+  facet_grid(subj~age)+
+  theme(legend.position="bottom")
 ```
 
