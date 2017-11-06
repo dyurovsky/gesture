@@ -1,0 +1,174 @@
+---
+title: "Interrater Reliability"
+author: "Maddie Meyers, Dan Yurovsky"
+date: "10/30/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(irr)
+library(feather)
+library(dplyr)
+library(knitr)
+library(tidyverse)
+library(stringr) 
+library(lme4)
+library(directlabels)
+library(DT)
+library(broom)
+library(data.table)
+library(forcats)
+library(tidytext)
+
+opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
+               error = FALSE, cache = TRUE, tidy = FALSE)
+
+theme_dy <- function(base_size = 14) 
+{
+  theme_bw() +   
+    ggplot2::`%+replace%`(ggplot2::theme_bw(base_size = base_size),
+                          ggplot2::theme(panel.grid = ggplot2::element_blank(), 
+                                         legend.position = "none"))
+}
+
+theme_set(theme_dy())
+```
+
+## R Markdown
+
+Load already set-up data
+```{r}
+setwd("~/Documents/Github/gesture")
+# Original data
+loaded_subjs <- read_feather("feathers/loaded_subjs_full.feather")
+coded_responses<-read_feather("feathers/coded_responses.feather")
+```
+
+Format Nicole's coded files
+```{r}
+files <-list.files("ldp_data/interrater_data/", 
+                   "*.csv", full.names = TRUE)
+
+nicole_subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
+  bind_rows() %>%
+  mutate(age = 10+session*4) %>%
+  mutate(coder="Nicole",
+         chat=utts,
+         time=rownames(.)) %>%
+  group_by(subj, age) %>%
+  select(time, coder, subj, age, person, spoken_obj, gestured_obj, referent, gloss, chat) 
+
+write_feather(nicole_subjs, 'feathers/interrater_data_nicole.feather')
+
+nicole_subj<-read_feather('feathers/interrater_data_nicole.feather') 
+
+max_refs_irr <- nicole_subj %>%
+  ungroup() %>%
+  gather(ref_col, refs, spoken_obj, gestured_obj, referent) %>%
+  mutate(num_refs = str_count(refs,";")) %>%
+  summarise(num_refs = max(num_refs, na.rm = T)+1) %>%
+  as.integer()
+  
+ref_list_irr <- sapply(1:max_refs,function(x) paste0("referent",x))
+
+spread_referents_irr <- nicole_subjs %>%
+  separate_("referent", ref_list, sep = ";", fill = "right") %>%
+  gather_("number", "referent", ref_list) %>%
+  filter(!is.na(referent)) %>%
+  mutate(referent = str_trim(referent))
+
+nicole_responses <- spread_referents_irr %>%
+  mutate(spoken_obj = map(str_split(spoken_obj, ";"), str_trim),
+         gestured_obj = map(str_split(gestured_obj, ";"), str_trim)) %>%
+  rowwise() %>%
+  mutate(spoken = purrr::has_element(spoken_obj[[1]], referent),
+         gestured = purrr::has_element(gestured_obj[[1]], referent),
+         both = spoken & gestured) %>%
+  ungroup() %>%
+  mutate(modality = if_else(spoken & gestured, "both", 
+                            if_else(spoken, "speech", "gesture"))) %>%
+  select(time, coder, subj, age, person, referent, modality, chat, gloss) %>%
+  left_join(referents) %>%
+  mutate(freq_cut = cut(log(freq), 4),
+         time=as.integer(time)) %>%
+  select(subj, age, time, chat, referent, modality, coder)
+```
+Format Maddie's coded files
+```{r}
+files <-list.files("ldp_data/fixed_data/", 
+                   "*.csv", full.names = TRUE)
+
+maddie_subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
+  bind_rows() %>%
+  mutate(age = 10+session*4) %>%
+  filter(subj %in% nicole_responses$subj &
+         age %in% nicole_responses$age) %>%
+  filter(!(is.na(chat)==TRUE & is.na(gloss)==TRUE))%>%
+  mutate(time=rownames(.),
+         coder="Maddie") %>%
+  group_by(subj, age) %>%
+  select(time, coder, subj, age, person, spoken_obj, gestured_obj, referent, gloss, chat) 
+
+write_feather(maddie_subjs, 'feathers/interrater_data_maddie.feather')
+
+maddie_subj<-read_feather('feathers/interrater_data_maddie.feather') 
+
+max_refs_irr <- maddie_subj %>%
+  ungroup() %>%
+  gather(ref_col, refs, spoken_obj, gestured_obj, referent) %>%
+  mutate(num_refs = str_count(refs,";")) %>%
+  summarise(num_refs = max(num_refs, na.rm = T)+1) %>%
+  as.integer()
+  
+ref_list_irr <- sapply(1:max_refs,function(x) paste0("referent",x))
+
+spread_referents_irr <- maddie_subjs %>%
+  separate_("referent", ref_list, sep = ";", fill = "right") %>%
+  gather_("number", "referent", ref_list) %>%
+  filter(!is.na(referent)) %>%
+  mutate(referent = str_trim(referent))
+
+maddie_responses <- spread_referents_irr %>%
+  mutate(spoken_obj = map(str_split(spoken_obj, ";"), str_trim),
+         gestured_obj = map(str_split(gestured_obj, ";"), str_trim)) %>%
+  rowwise() %>%
+  mutate(spoken = purrr::has_element(spoken_obj[[1]], referent),
+         gestured = purrr::has_element(gestured_obj[[1]], referent),
+         both = spoken & gestured) %>%
+  ungroup() %>%
+  mutate(modality = if_else(spoken & gestured, "both", 
+                            if_else(spoken, "speech", "gesture"))) %>%
+  select(time, coder, subj, age, person, referent, modality, chat, gloss) %>%
+  left_join(referents) %>%
+  mutate(freq_cut = cut(log(freq), 4),
+         time=as.integer(time)) %>%
+  select(subj, age, time, chat, referent, modality, coder)
+```
+
+Now we want to compare sessions that both coders have coded. Create a reliability data matrix to calculate alpha value.
+```{r}
+interrater_data<-maddie_responses %>%
+ full_join(nicole_responses, by = c("time","subj", "age")) %>%
+  arrange(time) %>%
+  select(coder.x, coder.y, referent.x, referent.y, modality.x, modality.y, time) %>%
+  mutate(coder.x="Maddie", coder.y="Nicole") %>%
+  mutate(uniq = rownames(.)) %>%
+  select(-time)
+
+long_interrater <- rbind(interrater_data %>% select(coder.x, referent.x, modality.x, uniq) %>%
+                   rename(coder=coder.x, referent=referent.x, modality=modality.x), 
+              interrater_data %>% select(coder.y, referent.y, modality.y, uniq) %>%
+                  rename(coder=coder.y, referent=referent.y, modality=modality.y))
+
+long_interrater_test<-long_interrater %>%
+  select(coder, uniq, referent, modality) %>%
+  gather(variable, value, -(coder:uniq)) %>%
+  unite(temp, uniq, variable) %>%
+  spread(temp, value) %>%
+  select(-coder)%>%
+  as.matrix()
+
+irr_coef<-kripp.alpha(long_interrater_test, method=c("nominal"))
+```
+
