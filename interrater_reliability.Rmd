@@ -37,15 +37,7 @@ theme_set(theme_dy())
 
 ## R Markdown
 
-Load already set-up data
-```{r}
-setwd("~/Documents/Github/gesture")
-# Original data
-loaded_subjs <- read_feather("feathers/loaded_subjs_full.feather")
-coded_responses<-read_feather("feathers/coded_responses.feather")
-```
-
-Format Nicole's coded files
+Format Nicole's coded files- SKIP IF HAVE FEATHER
 ```{r}
 files <-list.files("ldp_data/interrater_data/", 
                    "*.csv", full.names = TRUE)
@@ -57,44 +49,38 @@ nicole_subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
          chat=utts,
          time=rownames(.)) %>%
   group_by(subj, age) %>%
-  select(time, coder, subj, age, person, spoken_obj, gestured_obj, referent, gloss, chat) 
+  select(time, coder, subj, age, person, chat, gloss, spoken_obj, gestured_obj, referent) 
 
-write_feather(nicole_subjs, 'feathers/interrater_data_nicole.feather')
-
-nicole_subj<-read_feather('feathers/interrater_data_nicole.feather') 
-
-max_refs_irr <- nicole_subj %>%
+max_refs_irr <- nicole_subjs %>%
   ungroup() %>%
   gather(ref_col, refs, spoken_obj, gestured_obj, referent) %>%
   mutate(num_refs = str_count(refs,";")) %>%
   summarise(num_refs = max(num_refs, na.rm = T)+1) %>%
   as.integer()
   
-ref_list_irr <- sapply(1:max_refs,function(x) paste0("referent",x))
+ref_list_irr <- sapply(1:max_refs_irr,function(x) paste0("referent",x))
 
 spread_referents_irr <- nicole_subjs %>%
-  separate_("referent", ref_list, sep = ";", fill = "right") %>%
-  gather_("number", "referent", ref_list) %>%
-  filter(!is.na(referent)) %>%
+  separate_("referent", ref_list_irr, sep = ";", fill = "right") %>%
+  gather("number", "referent", ref_list_irr) %>%
+  filter(!(number != "referent1" & is.na(referent)==TRUE)) %>%
   mutate(referent = str_trim(referent))
 
 nicole_responses <- spread_referents_irr %>%
-  mutate(spoken_obj = map(str_split(spoken_obj, ";"), str_trim),
-         gestured_obj = map(str_split(gestured_obj, ";"), str_trim)) %>%
   rowwise() %>%
-  mutate(spoken = purrr::has_element(spoken_obj[[1]], referent),
-         gestured = purrr::has_element(gestured_obj[[1]], referent),
-         both = spoken & gestured) %>%
+  mutate(spoken=(is.na(spoken_obj)==FALSE),
+         gestured=(is.na(gestured_obj)==FALSE)) %>%
   ungroup() %>%
-  mutate(modality = if_else(spoken & gestured, "both", 
-                            if_else(spoken, "speech", "gesture"))) %>%
-  select(time, coder, subj, age, person, referent, modality, chat, gloss) %>%
-  left_join(referents) %>%
-  mutate(freq_cut = cut(log(freq), 4),
-         time=as.integer(time)) %>%
+  mutate(modality = if_else(spoken==TRUE & gestured==TRUE, "both", 
+                            if_else(spoken==TRUE, "speech", if_else(gestured==TRUE, "gesture", as.character(NA)))),
+         time=rownames(.)) %>%
   select(subj, age, time, chat, referent, modality, coder)
+
+
+write_feather(nicole_responses, 'feathers/interrater_data_nicole.feather')
 ```
-Format Maddie's coded files
+
+Format Maddie's coded files- SKIP IF HAVE FEATHER
 ```{r}
 files <-list.files("ldp_data/fixed_data/", 
                    "*.csv", full.names = TRUE)
@@ -108,67 +94,72 @@ maddie_subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
   mutate(time=rownames(.),
          coder="Maddie") %>%
   group_by(subj, age) %>%
-  select(time, coder, subj, age, person, spoken_obj, gestured_obj, referent, gloss, chat) 
+  select(time, coder, subj, age, person, spoken_obj, gestured_obj, referent, gloss, chat) %>%
+  mutate(time=rownames(.))
 
-write_feather(maddie_subjs, 'feathers/interrater_data_maddie.feather')
-
-maddie_subj<-read_feather('feathers/interrater_data_maddie.feather') 
-
-max_refs_irr <- maddie_subj %>%
+max_refs_irr <- maddie_subjs %>%
   ungroup() %>%
   gather(ref_col, refs, spoken_obj, gestured_obj, referent) %>%
   mutate(num_refs = str_count(refs,";")) %>%
   summarise(num_refs = max(num_refs, na.rm = T)+1) %>%
   as.integer()
   
-ref_list_irr <- sapply(1:max_refs,function(x) paste0("referent",x))
+ref_list_irr <- sapply(1:max_refs_irr,function(x) paste0("referent",x))
 
 spread_referents_irr <- maddie_subjs %>%
-  separate_("referent", ref_list, sep = ";", fill = "right") %>%
-  gather_("number", "referent", ref_list) %>%
-  filter(!is.na(referent)) %>%
+  separate_("referent", ref_list_irr, sep = ";", fill = "right") %>%
+  gather("number", "referent", ref_list_irr) %>%
+  filter(!(number != "referent1" & is.na(referent)==TRUE)) %>%
   mutate(referent = str_trim(referent))
 
 maddie_responses <- spread_referents_irr %>%
-  mutate(spoken_obj = map(str_split(spoken_obj, ";"), str_trim),
-         gestured_obj = map(str_split(gestured_obj, ";"), str_trim)) %>%
   rowwise() %>%
-  mutate(spoken = purrr::has_element(spoken_obj[[1]], referent),
-         gestured = purrr::has_element(gestured_obj[[1]], referent),
-         both = spoken & gestured) %>%
+  mutate(spoken=(is.na(spoken_obj)==FALSE),
+         gestured=(is.na(gestured_obj)==FALSE)) %>%
   ungroup() %>%
-  mutate(modality = if_else(spoken & gestured, "both", 
-                            if_else(spoken, "speech", "gesture"))) %>%
-  select(time, coder, subj, age, person, referent, modality, chat, gloss) %>%
-  left_join(referents) %>%
-  mutate(freq_cut = cut(log(freq), 4),
-         time=as.integer(time)) %>%
+  mutate(modality = if_else(spoken==TRUE & gestured==TRUE, "both", 
+                            if_else(spoken==TRUE, "speech", if_else(gestured==TRUE, "gesture", as.character(NA))))) %>%
   select(subj, age, time, chat, referent, modality, coder)
+
+write_feather(maddie_responses, 'feathers/interrater_data_maddie.feather')
 ```
 
 Now we want to compare sessions that both coders have coded. Create a reliability data matrix to calculate alpha value.
+
+load data
+```{r}
+nicole_responses<-read_feather('feathers/interrater_data_nicole.feather')
+
+maddie_responses<-read_feather('feathers/interrater_data_maddie.feather') 
+```
+
+Format data into weird matrix
 ```{r}
 interrater_data<-maddie_responses %>%
- full_join(nicole_responses, by = c("time","subj", "age")) %>%
+  full_join(nicole_responses, by = c("time", "subj", "age")) %>%
   arrange(time) %>%
   select(coder.x, coder.y, referent.x, referent.y, modality.x, modality.y, time) %>%
   mutate(coder.x="Maddie", coder.y="Nicole") %>%
   mutate(uniq = rownames(.)) %>%
   select(-time)
 
-long_interrater <- rbind(interrater_data %>% select(coder.x, referent.x, modality.x, uniq) %>%
-                   rename(coder=coder.x, referent=referent.x, modality=modality.x), 
-              interrater_data %>% select(coder.y, referent.y, modality.y, uniq) %>%
-                  rename(coder=coder.y, referent=referent.y, modality=modality.y))
 
-long_interrater_test<-long_interrater %>%
+long_interrater <- rbind(interrater_data %>% select(coder=coder.x, referent=referent.x, modality=modality.x, uniq),
+              interrater_data %>% select(coder=coder.y, referent=referent.y, modality=modality.y, uniq))
+
+long_interrater<-long_interrater %>%
   select(coder, uniq, referent, modality) %>%
+  arrange(uniq) %>%
   gather(variable, value, -(coder:uniq)) %>%
   unite(temp, uniq, variable) %>%
   spread(temp, value) %>%
   select(-coder)%>%
-  as.matrix()
 
-irr_coef<-kripp.alpha(long_interrater_test, method=c("nominal"))
+```
+
+Calculate coefficient
+```{r}
+irr_coef<-kripp.alpha(long_interrater, method=c("nominal"))
+irr_coef
 ```
 
