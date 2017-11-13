@@ -52,17 +52,15 @@ referents <- read_feather("feathers/referents.feather")
 coded_responses <- read_feather("feathers/coded_responses.feather")
 
 #Concreteness ratings
-concrete<-read.table("Concreteness_ratings_Brysbaert_et_al_BRM.txt", fill=TRUE, header=TRUE)
-
-concrete <-concrete %>%
-  rename(referent=Word) %>%
-  filter(Bigram==0) #take out two-word phrases
+concrete<-read_tsv("Concreteness_ratings_Brysbaert_et_al_BRM.txt") %>%
+  filter(Bigram==0) %>% #take out two-word phrases
+  rename(referent = Word)
 ```
 
 
 ```{r concrete}
-concrete_match<-referents %>%
-  mutate(match= ifelse(referent %in% concrete$Word,"Match", "No Match"))
+concrete_match <-referents %>%
+  mutate(match = if_else(referent %in% concrete$Word,"Match", "No Match"))
 
 sum(concrete_match$match=="No Match")
 #This concreteness measure is going to be very helpful--it contains 1,266 referents from the data set and only 325 are not included
@@ -71,15 +69,17 @@ sum(concrete_match$match=="No Match")
 
 Now we know that the concreteness data encompasses many of the referents we use. Is it a covariate for referent frequency?
 ```{r}
-concrete_data<-referents %>%
+concrete_data <- referents %>%
   inner_join(concrete, by="referent")
 
-ggplot(concrete_data, aes(x=freq, y=Conc.M))+
-  geom_point()
+ggplot(concrete_data, aes(x=log(freq), y=Conc.M))+
+  geom_point() +
+  geom_smooth()
 #there don't seem to be any real trends here, try filtering a little
 
-ggplot(concrete_data%>%filter(concrete_data$freq<500), aes(x=freq, y=Conc.M))+
-  geom_point()+geom_smooth()
+ggplot(filter(concrete_data, freq<500), aes(x=log(freq), y=Conc.M))+
+  geom_point()+
+  geom_smooth()
 ```
 
 What are these things that are very low concreteness in the data?
@@ -92,7 +92,9 @@ low_concrete<-concrete_data %>%
 Is concreteness related to gesture? Are people more likely to gesture to things that are more concrete?
 ```{r}
 modality_concrete<-coded_responses %>%
-  inner_join(concrete, by="referent") 
+  inner_join(concrete, by="referent") %>%
+  mutate(modality = factor(modality, 
+                           levels = c("speech", "gesture", "both")))
 
 ggplot(modality_concrete%>%filter(Conc.M>=4), aes(x=Conc.M, fill=modality)) +
   geom_bar() #not any super obvious trends here
@@ -103,19 +105,44 @@ mean_concrete<-modality_concrete %>%
   summarise(conc_modality= mean(Conc.M)) 
 
 #No large differences here! Let's make sure
-fit<-aov(Conc.M~modality, data=modality_concrete)
+fit <- lm(Conc.M ~ modality, data=modality_concrete)
 summary(fit)
+
+
+fit <- glmer(cbind(modality == "speech", 
+                 modality == "gesture") 
+             ~ log(freq) * Conc.M + log(freq) * scale(age) +
+              + (1|referent) + (1|subj), 
+           data = filter(modality_concrete, person == "child"),
+           family = "binomial")
+
+
+plot_data <- modality_concrete %>%
+  filter(person == "child") %>%
+  group_by(referent) %>%
+  summarise(freq = mean(log(freq)),
+            conc = mean(Conc.M),
+            speech_prob = mean(modality == "speech"))
+
+ggplot(plot_data, aes(x = scale(freq), y = exp(conc), color = speech_prob)) + 
+  geom_point() +
+  theme(legend.position = "right")
+
+
 ```
 
 ```{r}
 ggplot(modality_concrete%>%filter(Conc.M>=4), aes(x=Conc.M))+
   geom_bar()+
   geom_vline(aes(xintercept=4.791082),  color="blue")+
-  annotate(geom = "text", x = 4.830082, y = 7000, label = "Both", color="blue")+
+  annotate(geom = "text", x = 4.830082, y = 7000, 
+           label = "Both", color="blue")+
   geom_vline(aes(xintercept=4.788232),  color="green")+
-  annotate(geom = "text", x = 4.7450082, y = 6000, label = "Gesture", color="green")+
+  annotate(geom = "text", x = 4.7450082, y = 6000, 
+           label = "Gesture", color="green")+
   geom_vline(aes(xintercept=4.765145),  color="red")+
-  annotate(geom = "text", x = 4.7082, y = 5000, label = "Speech", color="red")
+  annotate(geom = "text", x = 4.7082, y = 5000, 
+           label = "Speech", color="red")
 ```
 
 
