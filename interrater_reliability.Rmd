@@ -126,10 +126,11 @@ write_feather(maddie_responses, 'feathers/interrater_data_maddie.feather')
 
 Now we want to compare sessions that both coders have coded. Create a reliability data matrix to calculate alpha value.
 
+##START HERE
 load data
 ```{r}
+setwd("~/Documents/GitHub/gesture")
 nicole_responses<-read_feather('feathers/interrater_data_nicole.feather')
-
 maddie_responses<-read_feather('feathers/interrater_data_maddie.feather') 
 ```
 
@@ -143,7 +144,6 @@ interrater_data<-maddie_responses %>%
   mutate(uniq = rownames(.)) %>%
   select(-time)
 
-
 long_interrater <- rbind(interrater_data %>% select(coder=coder.x, referent=referent.x, modality=modality.x, uniq),
               interrater_data %>% select(coder=coder.y, referent=referent.y, modality=modality.y, uniq))
 
@@ -153,13 +153,14 @@ long_interrater<-long_interrater %>%
   gather(variable, value, -(coder:uniq)) %>%
   unite(temp, uniq, variable) %>%
   spread(temp, value) %>%
-  select(-coder)%>%
-
+  select(-coder) %>%
+  as.matrix()
 ```
 
 Calculate coefficient
 ```{r}
 irr_coef<-kripp.alpha(long_interrater, method=c("nominal"))
 irr_coef
+#IRR Rating=0.829, not bad!
 ```
 

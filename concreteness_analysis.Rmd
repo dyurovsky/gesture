@@ -1,0 +1,122 @@
+---
+title: "Concreteness"
+author: "Maddie Meyers, Dan Yurovsky"
+date: "10/26/2017"
+output:
+  html_document:
+    toc: false
+    number_sections: false
+    theme: lumen
+    toc_float: false
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(tidyverse)
+library(langcog)
+library(stringr) 
+library(lme4)
+library(directlabels)
+library(DT)
+library(broom)
+library(data.table)
+library(ggplot2)
+library(forcats)
+library(feather)
+library(tidytext)
+
+opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
+               error = FALSE, cache = TRUE, tidy = FALSE)
+
+theme_dy <- function(base_size = 14) 
+{
+  theme_bw() +   
+    ggplot2::`%+replace%`(ggplot2::theme_bw(base_size = base_size),
+                          ggplot2::theme(panel.grid = ggplot2::element_blank(), 
+                                         legend.position = "none"))
+}
+
+theme_set(theme_dy())
+```
+
+## Concreteness Judgments
+We want to get a measure for how "concrete" our referents are, to protect against running into problems for words that are spoken about and not present, etc. Conreteness may also be a covariate and related to frequency in our model. 
+```{r}
+# Original data
+loaded_subjs <- read_feather('feathers/loaded_subjs_full.feather')
+# Referents and their frequencies
+referents <- read_feather("feathers/referents.feather")
+# End result of splitting referents and coding modality
+coded_responses <- read_feather("feathers/coded_responses.feather")
+
+#Concreteness ratings
+concrete<-read.table("Concreteness_ratings_Brysbaert_et_al_BRM.txt", fill=TRUE, header=TRUE)
+
+concrete <-concrete %>%
+  rename(referent=Word) %>%
+  filter(Bigram==0) #take out two-word phrases
+```
+
+
+```{r concrete}
+concrete_match<-referents %>%
+  mutate(match= ifelse(referent %in% concrete$Word,"Match", "No Match"))
+
+sum(concrete_match$match=="No Match")
+#This concreteness measure is going to be very helpful--it contains 1,266 referents from the data set and only 325 are not included
+#the referents not included seem to be obscure things (taquito, spongebob, digger_truck, rice_krispie, grilled_cheese, cheeto, etc.)
+```
+
+Now we know that the concreteness data encompasses many of the referents we use. Is it a covariate for referent frequency?
+```{r}
+concrete_data<-referents %>%
+  inner_join(concrete, by="referent")
+
+ggplot(concrete_data, aes(x=freq, y=Conc.M))+
+  geom_point()
+#there don't seem to be any real trends here, try filtering a little
+
+ggplot(concrete_data%>%filter(concrete_data$freq<500), aes(x=freq, y=Conc.M))+
+  geom_point()+geom_smooth()
+```
+
+What are these things that are very low concreteness in the data?
+```{r}
+#there are only 56 referents here with concreteness under 4, so we do not have to really worry. A lot of these are words like angel, ghoul, etc. 
+low_concrete<-concrete_data %>% 
+  filter(Conc.M < 4)
+```
+
+Is concreteness related to gesture? Are people more likely to gesture to things that are more concrete?
+```{r}
+modality_concrete<-coded_responses %>%
+  inner_join(concrete, by="referent") 
+
+ggplot(modality_concrete%>%filter(Conc.M>=4), aes(x=Conc.M, fill=modality)) +
+  geom_bar() #not any super obvious trends here
+
+#Let's compare mean concreteness ratings by modality
+mean_concrete<-modality_concrete %>%
+  group_by(modality) %>%
+  summarise(conc_modality= mean(Conc.M)) 
+
+#No large differences here! Let's make sure
+fit<-aov(Conc.M~modality, data=modality_concrete)
+summary(fit)
+```
+
+```{r}
+ggplot(modality_concrete%>%filter(Conc.M>=4), aes(x=Conc.M))+
+  geom_bar()+
+  geom_vline(aes(xintercept=4.791082),  color="blue")+
+  annotate(geom = "text", x = 4.830082, y = 7000, label = "Both", color="blue")+
+  geom_vline(aes(xintercept=4.788232),  color="green")+
+  annotate(geom = "text", x = 4.7450082, y = 6000, label = "Gesture", color="green")+
+  geom_vline(aes(xintercept=4.765145),  color="red")+
+  annotate(geom = "text", x = 4.7082, y = 5000, label = "Speech", color="red")
+```
+
+
+
