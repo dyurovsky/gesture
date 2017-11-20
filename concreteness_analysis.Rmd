@@ -60,7 +60,7 @@ concrete<-read_tsv("Concreteness_ratings_Brysbaert_et_al_BRM.txt") %>%
 
 ```{r concrete}
 concrete_match <-referents %>%
-  mutate(match = if_else(referent %in% concrete$Word,"Match", "No Match"))
+  mutate(match = if_else(referent %in% concrete$referent,"Match", "No Match"))
 
 sum(concrete_match$match=="No Match")
 #This concreteness measure is going to be very helpful--it contains 1,266 referents from the data set and only 325 are not included
@@ -104,19 +104,23 @@ mean_concrete<-modality_concrete %>%
   group_by(modality) %>%
   summarise(conc_modality= mean(Conc.M)) 
 
-#No large differences here! Let's make sure
+```
+
+```{r}
+#simple model
 fit <- lm(Conc.M ~ modality, data=modality_concrete)
 summary(fit)
 
-
+#not simple model
 fit <- glmer(cbind(modality == "speech", 
                  modality == "gesture") 
              ~ log(freq) * Conc.M + log(freq) * scale(age) +
               + (1|referent) + (1|subj), 
            data = filter(modality_concrete, person == "child"),
            family = "binomial")
+```
 
-
+```{r}
 plot_data <- modality_concrete %>%
   filter(person == "child") %>%
   group_by(referent) %>%
@@ -127,9 +131,36 @@ plot_data <- modality_concrete %>%
 ggplot(plot_data, aes(x = scale(freq), y = exp(conc), color = speech_prob)) + 
   geom_point() +
   theme(legend.position = "right")
+  
 
+plot_data_2 <- modality_concrete %>%
+  filter(person == "child") %>%
+  #group_by(referent) %>%
+  mutate(conc_bin=cut(Conc.M, 6)) %>%
+  group_by(conc_bin, freq) %>%
+  summarise(speech_prob = mean(modality == "speech")) 
+
+
+ggplot(plot_data_2, aes(x = log(freq), y = speech_prob)) +
+  facet_wrap(~ conc_bin) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme_classic()
+
+plot_data_3<-modality_concrete %>%
+  filter(person == "child") %>%
+  #group_by(referent) %>%
+  group_by(freq_cut, Conc.M) %>%
+  summarise(speech_prob = mean(modality == "speech"))
+
+ggplot(plot_data_3, aes(x = Conc.M, y = speech_prob)) +
+  facet_wrap(~ freq_cut) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme_classic()
 
 ```
+
 
 ```{r}
 ggplot(modality_concrete%>%filter(Conc.M>=4), aes(x=Conc.M))+
