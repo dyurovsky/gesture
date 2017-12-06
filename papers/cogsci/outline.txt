@@ -1,0 +1,56 @@
+Gesture Paper Outline
+
+Intro
+	Language learning as active interaction between parent and child
+	Do even linguistically inexperienced children contribute to the interaction in a goal directed way?
+	If communication is the goal, then -- Time pressure on in-the-moment communication
+	Retrieval time for words depends on fluency (we use frequency as a proxy, Wingfield 1968)
+	If this is true, and kids are taking too long, they might gesture instead
+	race model as a framework theory
+
+	three predictions:
+		1. frequency predicts gesture vs. speech
+		2. over development, children learn more language and so speech should win the race more often because words should be easier to retrieve
+		3. recent boosts in a word should make it easier to retrieve: in the same discourse burst, more likely to use speech for low frequency words
+
+	We look at a big longitudinal corpus to test these predictions
+
+Method
+	Data
+		Who's in the corpus? How was it collected, etc.
+	Processing
+		How was gesture coded? How was referent coded? Concrete nouns, etc
+	Show a table?? of the end state for analysis
+		person, utterance, gesture? referent -- Table 1
+	Frequency distribution plot
+		show some common words for reference -- Figure 1
+
+	second pass for presentness
+		- some descriptive stats, predictive accuracy
+
+	reliability
+
+Results
+
+	Predictions 1 and 2
+		Big lmer, main effects, interactions
+
+		Big multi-age plot -- Figure 2
+
+		Say something about parents?
+
+		address concreteness?
+
+	Prediction 3
+		Explain bag of words model of discourse, show a little gleitman coded for "same topic" -- Figure 3
+
+		lmer
+
+		Figure for recency?
+
+General Discussion
+	- language happens in interactions
+	- kids contribute
+	- language as a non-stationary process -- depends on the kid themselves
+	- how do parents and children differ in their use of gesture? gesture can do things other than refer. Gesture for labelling (both??)
+
