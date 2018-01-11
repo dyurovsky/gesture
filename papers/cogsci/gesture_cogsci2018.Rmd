@@ -27,89 +27,131 @@ output: cogsci2016::cogsci_paper
 
 ```{r global_options, include=FALSE}
 rm(list=ls())
-knitr::opts_chunk$set(fig.width=3, fig.height=3, fig.crop = F, fig.pos = "tb", fig.path='figs/',
+knitr::opts_chunk$set(fig.width=3, fig.height=3, fig.crop = F, fig.pos = "tb", 
+                      fig.path='figs/',
                       echo=F, warning=F, cache=F, message=F, sanitize = T)
 ```
 
 ```{r, libraries}
 library(png)
 library(grid)
-library(ggplot2)
 library(xtable)
+library(feather)
+library(tidyverse)
+
+theme_set(theme_classic(base_size = 10))
 ```
 
-# General Formatting Instructions 
+# Introduction
 
-For general information about authoring in markdown, see **[here](http://rmarkdown.rstudio.com/authoring_basics.html).**
+Young children are inundated with language, hearing on the order of 30 million words by the time they are four years old [@hart1995]. From the statisitical relationships within and among these words, children must discover the latent structures that allow them to become fluent speakers of their native language. Some of these words will be overheard, addressed by one parent to another or a sibling to a friend. However, some will be directed to the child, and these words maybe be particularly supportive of learning [@weisleder2013]. Child-directed speech is not merely a corpus of well-formed language; It is contingent on the child's own attention, interests, and prior knowledge, and thus can be directed *by the child themself*.
 
-For standard spoken papers and standard posters, the entire 
-contribution (including figures, references, everything) can be 
-no longer than six pages. For abstract posters, the entire contribution 
-can be no longer than one page. For symposia, the entire contribution 
-can be no longer than two pages.
+One way for children to direct their own input is to ask questions, a tool they employ with near-frustrating frequency and regularity. In her analysis of 5 children from the Brown and Kuczaj corpora in CHILDES, @chouinard2007 reports children asking over 100 questions per hour they interaction with adults over the 2-5 year range. However, long before they can explicitly direct their input with wh-questions, children can direct their input simply by referring to objects in their environment. Having observed a referential event, parents will often follow-in with expansions and additional information about the child's target of interest [@clark2014]
 
-The text of the paper should be formatted in two columns with an
-overall width of 7 inches (17.8 cm) and length of 9.25 inches (23.5
-cm), with 0.25 inches between the columns. Leave two line spaces
-between the last author listed and the text of the paper. The left
-margin should be 0.75 inches and the top margin should be 1 inch.
-\textbf{The right and bottom margins will depend on whether you use
-U.S. letter or A4 paper, so you must be sure to measure the width of
-the printed text.} Use 10 point Times Roman with 12 point vertical
-spacing, unless otherwise specified.
+Even before they can produce, or even maybe know, the words for many objects in the world around them, infants engage their social partners in reciprocal interactions around objects they find interesting [@bruner1983]. Even before they can walk, their first birthday children will engage in object-focused bids for an adult partner's attention, either pointing to a salient object of interest or carrying it over to share in join attention [@tomasello2007,@karasik2011]. These bids can produce many of the same kinds of linguistic responses from parents as do spoken referential acts.
 
-The title should be in 14 point, bold, and centered. The title should
-be formatted with initial caps (the first letter of content words
-capitalized and the rest lower case). Each author's name should appear
-on a separate line, 11 point bold, and centered, with the author's
-email address in parentheses. Under each author's name list the
-author's affiliation and postal address in ordinary 10 point  type.
+The goal of this work is to begin building a bridge between these two different ways in which children can communicate with conversational partenrs; to take a step in the direction of a generative model of children's referential productions. The primary target of interest will be predicting--for a given referential event--whether children are likely to use language, or are instead more likely to point or use another deictic gesture. 
 
-Indent the first line of each paragraph by 1/8~inch (except for the
-first paragraph of a new section). Do not add extra vertical space
-between paragraphs.
+# A race model for communcation
 
-# First-Level Headings
+We conceptualize the referential process as being composed of two stages: First a decision about what to refer to, and then a subsequent process in which the communicative act is formed. In the following analyses, we leave the first process unspecified--we will not attempt to model how children choose their target of reference. However, once a referent is chosen, we can think of the communicative act as the output of a race between two independent accumluators: One for speech, and one for gesture. At every timestimep, each of the two accumulators accumulator increases with a probability proportional to its own drift rate, and the accumulator that reaches threshold first wins (see e.g. @brown2008). 
 
-First level headings should be in 12 point , initial caps, bold and
-centered. Leave one line space above the heading and 1/4~line space
-below the heading.
 
-## Second-Level Headings
 
-Second level headings should be 11 point , initial caps, bold, and
-flush left. Leave one line space above the heading and 1/4~ line
-space below the heading.
+Three predictions of a race model for communication:
+three predictions:
+		1. frequency predicts gesture vs. speech
+		2. over development, children learn more language and so speech should win the race more often because words should be easier to retrieve
+		3. recent boosts in a word should make it easier to retrieve: in the same discourse burst, more likely to use speech for low frequency words
+		
+We test all three of these predictions in a large longitidunal corpus of parent-child interaction.
 
-### Third-Level Headings
+# Method
 
-Third-level headings should be 10 point , initial caps, bold, and flush
-left. Leave one line space above the heading, but no space after the
-heading.
+```{r load_corpus}
+coded_responses <- read_feather("../../feathers/coded_responses.feather")
+demos <- read_feather("../../feathers/demos.feather")
+referents <- read_feather("../../feathers/referents.feather")
 
-# Formalities, Footnotes, and Floats
+subjs <- coded_responses %>%
+  distinct(subj) %>%
+  pull()
 
-Use standard APA citation format. Citations within the text should
-include the author's last name and year. If the authors' names are
-included in the sentence, place only the year in parentheses, as in
-[-@NewellSimon1972a], but otherwise place the entire reference in
-parentheses with the authors and year separated by a comma
-[@NewellSimon1972a]. List multiple references alphabetically and
-separate them by semicolons [@ChalnickBillman1988a; @NewellSimon1972a]. 
-Use the et. al. construction only after listing all the authors to a
-publication in an earlier reference and for citations with four or
-more authors.
+ages <- coded_responses %>%
+  distinct(age) %>%
+  pull()
 
-For more information on citations in R Markdown, see **[here](http://rmarkdown.rstudio.com/authoring_bibliographies_and_citations.html#citations).**
 
-## Footnotes
 
-Indicate footnotes with a number\footnote{Sample of the first
-footnote.} in the text. Place the footnotes in 9 point type at the
-bottom of the page on which they appear. Precede the footnote with a
-horizontal rule.\footnote{Sample of the second footnote.}
+```
 
-## Figures
+Get a corpus, code the corpus,
+
+# Corpus
+
+The data analyzed here are transcriptions of recordings parent-child interactions in the homes of `r length(subjs)` children from the Chicagoland area. Each recording was ~90min long, and participants were given no instructions about how to interact--the goal was to observe the naturalistic ecology of language learning. Each child was recorded `r length(ages)` times at 4-month intervals starting at `r min(ages)`-mo. and ending at `r max(ages)`-mo. 
+
+These children's data was drawn from the larger Language Development Project dataset pseudo-randomly to preserve the socio-economic, racial, and gender diversity of the children as a representation of the broader Chicago community. Of the `r length(subjs)` children, `r demos %>% summarise(female = sum(sex == "F")) %>% pull()` were girls, `r demos %>% summarise(black = sum(race == "BL")) %>% pull()` were Black and `r demos %>% summarise(mixed = sum(race == "2+")) %>% pull()` were Mixed-Race, and EDUCATION LEVEL.
+
+## Data Processing
+
+The original Language Development Project transcripts consist of utterance-by-utterance transcriptions of the 90 minute recordings in CHAT format [@macwhinney2000], as well as a transcription of all communicative gestures produced by children and their conversational partners, including conventional gestures (e.g. waving "bye"), representational gestures (e.g. tracing the shape of a square), and deictic gestures (e.g. pointing to a ball).
+
+For each of these communicative acts, we coded all concrete noun referents indicated in either the spoken or gestural modality (see Table 1). As it is difficult both to gesture about, and to code, gestures for abstract entities like “weekend,” we focused only on concrete nouns. Spoken referents were coded only if a noun label was used (e.g. no pronouns were included), and only deictic gestures were counted as referential to minimize ambiguity in coding. SOME STUFF FROM MADDIE HERE
+
+
+```{r coding_table, results="asis", tab.env = "table"}
+
+coding_table <- read_csv("figs/coding_table.csv") %>%
+  remove_rownames() %>%
+  xtable(caption = "An example of the output of data processing") 
+
+
+print(coding_table, type = "latex", comment = F, table.placement = "tb",
+      include.rownames = FALSE)
+```
+
+## Validation
+
+### Reliability 
+
+STUFF FROM MADDIE HERE
+
+### Referent Presence
+
+STUFF FROM MADDIE HERE
+
+# Results
+
+The key predictions of our race model of reference all connect the ease of recall of a referent's spoken label. Although ease of recall is likely related to a number of factors (e.g. phonotactic probability, neighborhood density, etc), we focus here on one easily quantifiable and well-attested predictor: input frequency [@wingfield1968]. 
+
+## Estimating Frequency
+
+To estimate the input frequency of each referent in the corpus, we summed its frequency of use across all children and parents and across both the speech and gestural modalities. This estimator is of course imperfect-- It assumes, for instance, that every child receives the same input, and that input frequency is stationary across development. Nonetheless, because of the difficulty of estimating these frequencies well especially from a corpus of this size, we felt that a more complex estimator would introduce more error than it was worth.
+
+```{r freq_fig,  fig.width=3.5, fig.height=2, set.cap.width=T, num.cols.cap=1, fig.cap = "One column image"}
+label_refs <- referents %>%
+  filter(referent %in% c("mom", "baby", "train", "dinosaur", "zucchini",
+                          "cauliflower", "windchime"))
+
+ggplot(referents, aes(x = rank, y = freq)) + 
+  geom_point(size = .1) + 
+  scale_x_log10(name = "Rank Frequency", breaks = c(1, 10, 100, 1000)) + 
+  scale_y_log10(name = "Frequency", breaks = c(1, 10, 100, 1000)) + 
+  geom_label(data = label_refs, aes(label = referent), color = "#e41a1c",
+             size = 2)
+
+```
+
+Figure 1 shows the frequency distribution of the `r nrow(referents)` individual referents in this corpus across all recordings. As with many other frequency distributions in language, referential frequencies were approximately Zipfian, appearing approximately linear on a log-log scale [@piantadosi2014]. These frequency estimates were used to test the first key prediction of the race model of communcation: Labels for referents that are easier to retrieve from memory are more likely to be produced in speech.
+
+## Testing the Race Model
+
+
+Figure 1 shows the distribution of 
+
+primary independent variable in the predictions made by the race model of reference is 
+
 
 All artwork must be very dark for purposes of reproduction and should
 not be hand drawn. Number figures sequentially, placing the figure
@@ -119,13 +161,30 @@ the bottom of the page to avoid splitting the figure and figure
 caption. You may float figures to the top or bottom of a column, or
 set wide figures across both columns.
 
-## Two-column images
+## Tables
 
-You can read local images using png package for example and plot 
-it like a regular plot using grid.raster from the grid package. 
-With this method you have full control of the size of your image. **Note: Image must be in .png file format for the readPNG function to work.**
+Number tables consecutively; place the table number and title (in
+10 point) above the table with one line space above the caption and
+one line space below it, as in Table 1. You may float
+tables to the top or bottom of a column, set wide tables across both
+columns.
 
-You might want to display a wide figure across both columns. To do this, you change the `fig.env` chunk option to `figure*`. To align the image in the center of the page, set `fig.align` option to `center`. To format the width of your caption text, you set the `num.cols.cap` option to `2`.
+You can use the xtable function in the xtable package.
+
+```{r xtable, results="asis"}
+n <- 100
+x <- rnorm(n)
+y <- 2*x + rnorm(n)
+out <- lm(y ~ x)
+
+tab1 <- xtable::xtable(summary(out)$coef, digits=c(0, 2, 2, 1, 2), 
+                      caption = "This table prints across one column.")
+
+print(tab1, type="latex", comment = F, table.placement = "H")
+```
+
+## Frequency of use
+
 
 ```{r 2-col-image, fig.env = "figure*", fig.pos = "h", fig.width=4, fig.height=2, fig.align = "center", set.cap.width=T, num.cols.cap=2, fig.cap = "This image spans both columns. And the caption text is limited to 0.8 of the width of the document."}
 img <- png::readPNG("figs/walrus.png")
@@ -158,32 +217,10 @@ ggplot2::ggplot(data = data.frame(x, y),
 ```
 
 
-## Tables
-
-Number tables consecutively; place the table number and title (in
-10 point) above the table with one line space above the caption and
-one line space below it, as in Table 1. You may float
-tables to the top or bottom of a column, set wide tables across both
-columns.
-
-You can use the xtable function in the xtable package.
-
-```{r xtable, results="asis"}
-n <- 100
-x <- rnorm(n)
-y <- 2*x + rnorm(n)
-out <- lm(y ~ x)
-
-tab1 <- xtable::xtable(summary(out)$coef, digits=c(0, 2, 2, 1, 2), 
-                      caption = "This table prints across one column.")
-
-print(tab1, type="latex", comment = F, table.placement = "H")
-```
 
 # Acknowledgements
 
-Place acknowledgments (including funding information) in a section at
-the end of the paper.
+This research was funded by a James S. McDonnell Foundation Scholar Award to DY and National Institutes of Health P01HD40605 to SGM.
 
 # References 
 
