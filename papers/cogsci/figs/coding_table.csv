@@ -1,0 +1,12 @@
+person,utterance,gesture,referent,spoken,gestured
+parent,do you want to read a book quick with mom,,,book;mom,
+child,no,,,,
+child,mommy,,,mom,
+parent,no,,,,
+parent,oh you want to wear your necklaces,,,necklace,
+parent,uhoh,,,,
+parent,I think it's stuck,,,,
+parent,you need some help,,,,
+child,,hold,necklace,,necklace
+parent,why don't you just say help instead of yelling,,,,
+parent,can you say help mommy,,,mom,
