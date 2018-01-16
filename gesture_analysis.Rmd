@@ -47,12 +47,15 @@ Load in coded data and show how many children we have at each age
 loaded_subjs<-read_feather('feathers/loaded_subjs_full.feather')
 
 loaded_subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
+  map(., ~mutate_at(., "ref_predicted", as.character)) %>%
   bind_rows() %>%
   mutate(age = 10+session*4) %>%
   mutate(time2=rownames(.)) %>%
   group_by(subj, age) %>%
   mutate(time = 1:n()) %>%
-  select(time, time2, subj, age, person, spoken_obj, gestured_obj, referent, gloss, chat) 
+  select(time, time2, subj, age, person, spoken_obj, gestured_obj, referent, ref_pres, ref_predicted, gloss, chat) 
+
+fill_vals<-which(is.na(loaded_subjs$ref_predicted)==TRUE & is.na(loaded_subjs$referent)==FALSE)
 
 demos <- loaded_subjs %>%
   select(subj,age) %>%
@@ -68,7 +71,7 @@ Let's look at the referents first
 
 ```{r referent_freqs}
 # Compute the frequency of each distinct referent
-referents <- loaded_subjs %>%
+referents <- subjs %>%
   ungroup() %>%
   select(referent) %>%
   filter(!is.na(referent)) %>%
@@ -169,14 +172,22 @@ max_refs <- loaded_subjs %>%
   mutate(num_refs = str_count(refs,";")) %>%
   summarise(num_refs = max(num_refs, na.rm = T)+1) %>%
   as.integer()
+
+max_ref_predicted <- loaded_subjs %>%
+  ungroup() %>%
+  gather(ref_predicted_col, ref_predicted, ref_predicted) %>%
+  mutate(num_ref_predicted = str_count(ref_predicted,";")) %>%
+  summarise(num_ref_predicted = max(num_ref_predicted, na.rm = T)+1) %>%
+  as.integer()
   
 ref_list <- sapply(1:max_refs,function(x) paste0("referent",x))
+ref_predicted_list <- sapply(1:max_ref_predicted,function(x) paste0("ref_predicted",x))
 
 spread_referents <- loaded_subjs %>%
   separate_("referent", ref_list, sep = ";", fill = "right") %>%
   gather_("number", "referent", ref_list) %>%
   filter(!is.na(referent)) %>%
-  mutate(referent = str_trim(referent))
+  mutate(referent = str_trim(referent)) 
 
 coded_responses <- spread_referents %>%
   mutate(spoken_obj = map(str_split(spoken_obj, ";"), str_trim),
@@ -188,13 +199,19 @@ coded_responses <- spread_referents %>%
   ungroup() %>%
   mutate(modality = if_else(spoken & gestured, "both", 
                             if_else(spoken, "speech", "gesture"))) %>%
-  select(time, time2, subj, age, person, referent, modality, chat, gloss) %>%
+  select(-number) %>%
+  separate_("ref_predicted", ref_predicted_list, sep = ";", fill = "right") %>%
+  gather_("number", "ref_predicted", ref_predicted_list) %>%
+  filter(!is.na(ref_predicted)) %>%
+  mutate(ref_predicted=str_trim(ref_predicted)) %>%
+  select(time, time2, subj, age, person, referent, modality, ref_predicted, chat, gloss) %>%
   left_join(referents) %>%
   mutate(freq_cut = cut(log(freq), 4))
 
 write_feather(coded_responses, "feathers/coded_responses.feather")
 
 modality_data <- coded_responses %>%
+  filter(ref_predicted=="1") %>%
   group_by(person, age, subj, freq_cut, rank, freq, referent, modality, chat) %>%
   summarise(n = n()) %>%
   spread(modality, n, fill = 0)
@@ -203,7 +220,7 @@ modality_data <- coded_responses %>%
 These plots show the tradeoff between speech and gesture across ages for children and parents. 
 ```{r speech_gesture_plot, fig.width=9, fig.height=4}
 plotting_data <- coded_responses %>%
-  #filter(modality != "both") %>%
+  filter(ref_predicted == "1") %>% #filters out referents that are not present in the environment
   group_by(person, age, subj, freq_cut, modality) %>%
   summarise(n = n()) %>%
   mutate(prob = n/sum(n)) %>%
@@ -212,6 +229,7 @@ plotting_data <- coded_responses %>%
 
 ggplot(plotting_data, aes(x = as.numeric(freq_cut), y = mean, color = modality,
                           label = modality)) +
+  geom_line()+
   facet_grid(person ~ age) + 
   geom_pointrange(aes(ymax = ci_upper, ymin = ci_lower), 
                  position = position_dodge(.25)) + 

@@ -10,9 +10,9 @@ library(feather)
 
 
 ```{r establish referent changes}
-x1<-c("ahir", "ardvark", "at", "batteries", "bbug", "beans", "bicycle", "boo", "boo_boo", "brown_page", "butterly", "caker", "CD", "cerea", "chick", "chicken_nugget, french_fry", "chik", "chil", "chld", "chiristmas_tree", "cirle", "digger", "dump_truck", "eg", "fae", "fiit", "fire_engine", "garbgage", "girlg", "grandma", "hild", "hippo", "ice_crema", "jackbot", "jacker", "jack_box", "key, child", "motorcycyle", "mushrooom", "mustach", "noodel", "oowd", "orange)juice", "pajama", "pajams", "peah", "people", "platn", "play_dough", "pocekt", "potty", "rasin", "refriegerator", "scissor", "seleeve", "wc", "yellow_page", "rubber_ruck", "scrw", "play_dough", "photo_alum", "high_chair", "lolipop", "chair_seat", "dump_truck", "canteloupe", "lucky", "pliers", "experimenter", "hair_tie", "garbage_can", "grandma", "hot_tub", "home", "golf_ball", "cryaon", "winder", "ice_crema", "windowsil", "jackbot", "dol", "rasin", "hold", "chat", "children", "hear", "plato", "plante", "hant", "brown_page", "girly", "arm, sleeve", "nob", "underpants", "goofy", "smiley_face", "muffle", "stairs", "guest_room", "floot", "mother", "shoes", "matter", "lights", "macine", "dipaer", "me", "toilet", "trashcan", "telephone")
+x1<-c("ssiter", "supehero", "seleeve", "rubber_ruck", "peah", "nob", "noodel", "macine", "hant", "garbgage", "eggplante", "eg", "dipaer", "cirle", "caryon", "CD", "butterly", "boz", "batteries", "ahir")
 
-y1<-c("hair", "aardvark", " ","battery", "bug", "bean", "bike", "cut", "cut", "page", "butterfly", "cake", "cd", "cereal", "chicken", "chicken_nugget", "chicken", "child", "child", "christmas_tree", "circle", "digger_truck", "dumptruck", "egg", "face", "", "firetruck", "garbage", "girl", "grandmother", "child", "hippopotamus", "ice_cream", "jackpot", "jacket", "jackinthebox", "key", "motorcycle", "mushroom", "mustache", "noodle", "", "orange_juice", "pajamas", "pajamas", "pea", "person", "plate", "playdoh", "pocket", "toilet", "raisin", "refrigerator", "scissors", "sleeve","", "page", "rubber_duck", "screw", "play_doh", "photo_album", "highchair", "lollipop", "highchair", "dumptruck", "cantaloupe", "child", "plier", "", "hairtie", "garbage", "grandmother", "hottub", "", "golfball", "crayon", "crank", "ice_cream", "windowsill", "jackpot", "doll", "raisin", "", "hat", "kid", "", "pluto", "plant", "hand", "", "girl", "arm; sleeve", "knob", "underwear", "", "smile", "muffler", "stair", "guestroom", "floor", "mom", "shoe", "", "light", "machine", "diaper", "", "potty", "garbage", "phone")
+y1<-c("sister", "superhero", "sleeve", "rubber_duck", "peach", "knob", "noodle", "machine", "hand", "garbage", "eggplant", "egg", "diaper", "circle", "cryaon", "cd", "butterfly", "box", "battery", "hair")
 
 referent_changes<-data_frame(referent=x1, fix_referent=y1)
 ```
@@ -22,6 +22,7 @@ files <-list.files("ldp_data/coded_data/",
                    "*.csv", full.names = TRUE)
 
 subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
+  map(., ~mutate_at(., "ref_predicted", as.character)) %>%
   bind_rows() %>%
   mutate(rownum = 1:nrow(.))
 
@@ -56,6 +57,7 @@ files <-list.files("ldp_data/fixed_data/",
                    "*.csv", full.names = TRUE)
 
 subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
+  map(., ~mutate_at(., "ref_predicted", as.character)) %>%
   bind_rows() %>%
   mutate(age = 10+session*4) %>%
   mutate(time2=rownames(.)) %>%

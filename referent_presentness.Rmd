@@ -1,0 +1,57 @@
+---
+title: "referent_presentness"
+author: "Maddie Meyers, Dan Yurovsky"
+date: "1/16/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(tidyverse)
+library(tidyboot)
+library(stringr) 
+library(lme4)
+library(directlabels)
+library(DT)
+library(broom)
+library(data.table)
+library(ggplot2)
+library(forcats)
+library(feather)
+
+opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
+               error = FALSE, cache = TRUE, tidy = FALSE)
+
+theme_dy <- function(base_size = 14) 
+{
+  theme_bw() +   
+  ggplot2::`%+replace%`(ggplot2::theme_bw(base_size = base_size),
+                          ggplot2::theme(panel.grid = ggplot2::element_blank(), 
+        legend.position = "none"))
+}
+
+theme_set(theme_dy())
+```
+
+## R Markdown
+
+
+```{r load data}
+loaded_subjs<-read_feather('feathers/loaded_subjs_full.feather')
+coded_responses<-read_feather('feathers/coded_responses.feather')
+referents<-read_feather('feathers/referents.feather')
+```
+
+```{r presentness prob}
+presentness<-coded_responses %>%
+  mutate(ref_predicted=as.numeric(ref_predicted))
+
+summary(presentness$ref_predicted)
+#mean presentness value is 0.8671, which means that 86.71% of referents are present on average
+
+presentness_age<-presentness %>%
+  filter(is.na(ref_predicted)==FALSE) %>%
+  group_by(age) %>%
+  summarise(mean=(sum(ref_predicted)/n()))
+```
+
