@@ -86,6 +86,7 @@ files <-list.files("ldp_data/fixed_data/",
                    "*.csv", full.names = TRUE)
 
 maddie_subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
+  map(., ~mutate_at(., "ref_predicted", as.character)) %>%
   bind_rows() %>%
   mutate(age = 10+session*4) %>%
   filter(subj %in% nicole_responses$subj &
@@ -94,8 +95,7 @@ maddie_subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
   mutate(time=rownames(.),
          coder="Maddie") %>%
   group_by(subj, age) %>%
-  select(time, coder, subj, age, person, spoken_obj, gestured_obj, referent, gloss, chat) %>%
-  mutate(time=rownames(.))
+  select(time, coder, subj, age, person, spoken_obj, gestured_obj, referent, gloss, chat) 
 
 max_refs_irr <- maddie_subjs %>%
   ungroup() %>%
@@ -161,6 +161,113 @@ Calculate coefficient
 ```{r}
 irr_coef<-kripp.alpha(long_interrater, method=c("nominal"))
 irr_coef
-#IRR Rating=0.829, not bad!
+#IRR Rating=0.808, not bad!
+```
+
+Reliability with yourself
+```{r}
+files <-list.files("ldp_data/fixed_data/", 
+                   "*.csv", full.names = TRUE)
+
+maddie_subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
+  bind_rows() %>%
+  mutate(age = 10+session*4) %>%
+  filter(!(is.na(chat)==TRUE & is.na(gloss)==TRUE))%>%
+  mutate(time=rownames(.),
+         coder="Maddie1") %>%
+  group_by(subj, age) %>%
+  select(time, coder, subj, age, person, spoken_obj, gestured_obj, referent, gloss, chat) %>%
+  mutate(time=rownames(.))
+
+max_refs_irr <- maddie_subjs %>%
+  ungroup() %>%
+  gather(ref_col, refs, spoken_obj, gestured_obj, referent) %>%
+  mutate(num_refs = str_count(refs,";")) %>%
+  summarise(num_refs = max(num_refs, na.rm = T)+1) %>%
+  as.integer()
+  
+ref_list_irr <- sapply(1:max_refs_irr,function(x) paste0("referent",x))
+
+spread_referents_irr <- maddie_subjs %>%
+  separate_("referent", ref_list_irr, sep = ";", fill = "right") %>%
+  gather("number", "referent", ref_list_irr) %>%
+  filter(!(number != "referent1" & is.na(referent)==TRUE)) %>%
+  mutate(referent = str_trim(referent))
+
+maddie_responses_1 <- spread_referents_irr %>%
+  rowwise() %>%
+  mutate(spoken=(is.na(spoken_obj)==FALSE),
+         gestured=(is.na(gestured_obj)==FALSE)) %>%
+  ungroup() %>%
+  mutate(modality = if_else(spoken==TRUE & gestured==TRUE, "both", 
+                            if_else(spoken==TRUE, "speech", if_else(gestured==TRUE, "gesture", as.character(NA))))) %>%
+  select(subj, age, time, chat, referent, modality, coder)
+```
+
+```{r}
+files <-list.files("ldp_data/maddie_2_data/", 
+                   "*.csv", full.names = TRUE)
+
+maddie_subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
+  bind_rows() %>%
+  mutate(age = 10+session*4) %>%
+  filter(!(is.na(chat)==TRUE & is.na(gloss)==TRUE))%>%
+  mutate(time=rownames(.),
+         coder="Maddie2") %>%
+  group_by(subj, age) %>%
+  select(time, coder, subj, age, person, spoken_obj, gestured_obj, referent, gloss, chat) %>%
+  mutate(time=rownames(.))
+
+max_refs_irr <- maddie_subjs %>%
+  ungroup() %>%
+  gather(ref_col, refs, spoken_obj, gestured_obj, referent) %>%
+  mutate(num_refs = str_count(refs,";")) %>%
+  summarise(num_refs = max(num_refs, na.rm = T)+1) %>%
+  as.integer()
+  
+ref_list_irr <- sapply(1:max_refs_irr,function(x) paste0("referent",x))
+
+spread_referents_irr <- maddie_subjs %>%
+  separate_("referent", ref_list_irr, sep = ";", fill = "right") %>%
+  gather("number", "referent", ref_list_irr) %>%
+  filter(!(number != "referent1" & is.na(referent)==TRUE)) %>%
+  mutate(referent = str_trim(referent))
+
+maddie_responses_2 <- spread_referents_irr %>%
+  rowwise() %>%
+  mutate(spoken=(is.na(spoken_obj)==FALSE),
+         gestured=(is.na(gestured_obj)==FALSE)) %>%
+  ungroup() %>%
+  mutate(modality = if_else(spoken==TRUE & gestured==TRUE, "both", 
+                            if_else(spoken==TRUE, "speech", if_else(gestured==TRUE, "gesture", as.character(NA))))) %>%
+  select(subj, age, time, chat, referent, modality, coder)
+
+```
+
+```{r}
+
+interrater_data<-maddie_responses_1 %>%
+  filter(subj==43 & age==22) %>%
+  full_join(maddie_responses_2, by = c("time", "subj", "age")) %>%
+  arrange(time) %>%
+  select(coder.x, coder.y, referent.x, referent.y, modality.x, modality.y, time) %>%
+  mutate(coder.x="Maddie", coder.y="Maddie2") %>%
+  mutate(uniq = rownames(.)) %>%
+  select(-time)
+
+long_interrater <- rbind(interrater_data %>% select(coder=coder.x, referent=referent.x, modality=modality.x, uniq),
+              interrater_data %>% select(coder=coder.y, referent=referent.y, modality=modality.y, uniq))
+
+long_interrater<-long_interrater %>%
+  select(coder, uniq, referent, modality) %>%
+  arrange(uniq) %>%
+  gather(variable, value, -(coder:uniq)) %>%
+  unite(temp, uniq, variable) %>%
+  spread(temp, value) %>%
+  select(-coder) %>%
+  as.matrix()
+
+irr_coef<-kripp.alpha(long_interrater, method=c("nominal"))
+irr_coef #p good, p good
 ```
 

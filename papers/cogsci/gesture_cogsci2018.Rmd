@@ -5,7 +5,7 @@ csl: apa6.csl
 document-params: "10pt, letterpaper"
 
 author-information: > 
- \author{Daniel Yurovksy, Madeline Meyers, Nicole Burke, Amanda, 
+ \author{Daniel Yurovksy, Madeline Meyers, Nicole Burke, Amanda Woodward, 
          \and Susan Goldin-Meadow \\
          \texttt{\{yurovsky, mcmeyers, nicoleburke, woodward, sgm\}@uchicago.edu} \\
         Department of Psychology \\ University of Chicago}
@@ -44,13 +44,13 @@ theme_set(theme_classic(base_size = 10))
 
 # Introduction
 
-Young children are inundated with language, hearing on the order of 30 million words by the time they are four years old [@hart1995]. From the statisitical relationships within and among these words, children must discover the latent structures that allow them to become fluent speakers of their native language. Some of these words will be overheard, addressed by one parent to another or a sibling to a friend. However, some will be directed to the child, and these words maybe be particularly supportive of learning [@weisleder2013]. Child-directed speech is not merely a corpus of well-formed language; It is contingent on the child's own attention, interests, and prior knowledge, and thus can be directed *by the child themself*.
+Young children are inundated with language, hearing on the order of 30 million words by the time they are four years old [@hart1995]. From the statisitcal relationships within and among these words, children must discover the latent structures that allow them to become fluent speakers of their native language. Some of these words will be overheard, addressed by one parent to another or a sibling to a friend. However, some will be directed to the child, and these words maybe be particularly supportive of learning [@weisleder2013]. Child-directed speech is not merely a corpus of well-formed language; It is contingent on the child's own attention, interests, and prior knowledge, and thus can be directed *by the child themself*.
 
 One way for children to direct their own input is to ask questions, a tool they employ with near-frustrating frequency and regularity. In her analysis of 5 children from the Brown and Kuczaj corpora in CHILDES, @chouinard2007 reports children asking over 100 questions per hour they interaction with adults over the 2-5 year range. However, long before they can explicitly direct their input with wh-questions, children can direct their input simply by referring to objects in their environment. Having observed a referential event, parents will often follow-in with expansions and additional information about the child's target of interest [@clark2014]
 
-Even before they can produce, or even maybe know, the words for many objects in the world around them, infants engage their social partners in reciprocal interactions around objects they find interesting [@bruner1983]. Even before they can walk, their first birthday children will engage in object-focused bids for an adult partner's attention, either pointing to a salient object of interest or carrying it over to share in join attention [@tomasello2007,@karasik2011]. These bids can produce many of the same kinds of linguistic responses from parents as do spoken referential acts.
+Even before they can produce, or even maybe know, the words for many objects in the world around them, infants engage their social partners in reciprocal interactions around objects they find interesting [@bruner1983]. Even before they can walk, children will engage in object-focused bids for an adult partner's attention, either pointing to a salient object of interest or carrying it over to share in joint attention [@tomasello2007,@karasik2011]. These bids can produce many of the same kinds of linguistic responses from parents as do spoken referential acts.
 
-The goal of this work is to begin building a bridge between these two different ways in which children can communicate with conversational partenrs; to take a step in the direction of a generative model of children's referential productions. The primary target of interest will be predicting--for a given referential event--whether children are likely to use language, or are instead more likely to point or use another deictic gesture. 
+The goal of this work is to begin building a bridge between these two different ways in which children can communicate with conversational partners; to take a step in the direction of a generative model of children's referential productions. The primary target of interest will be predicting--for a given referential event--whether children are likely to use language, or are instead more likely to point or use another deictic gesture. 
 
 # A race model for communcation
 
@@ -70,7 +70,8 @@ We test all three of these predictions in a large longitidunal corpus of parent-
 
 ```{r load_corpus}
 coded_responses <- read_feather("../../feathers/coded_responses.feather")
-demos <- read_feather("../../feathers/demos.feather")
+demos <- read_feather("../../feathers/demos.feather") %>%
+  filter(id != 47, id != 110)
 referents <- read_feather("../../feathers/referents.feather")
 
 subjs <- coded_responses %>%
@@ -80,6 +81,8 @@ subjs <- coded_responses %>%
 ages <- coded_responses %>%
   distinct(age) %>%
   pull()
+
+income<-c("Less than $15,000", "$15,000-$34,999", "$34,999-$49,999", "$50,000-$74,999", "$75,000-$99,999", "$100,000 or more" )
 
 
 
@@ -91,13 +94,13 @@ Get a corpus, code the corpus,
 
 The data analyzed here are transcriptions of recordings parent-child interactions in the homes of `r length(subjs)` children from the Chicagoland area. Each recording was ~90min long, and participants were given no instructions about how to interact--the goal was to observe the naturalistic ecology of language learning. Each child was recorded `r length(ages)` times at 4-month intervals starting at `r min(ages)`-mo. and ending at `r max(ages)`-mo. 
 
-These children's data was drawn from the larger Language Development Project dataset pseudo-randomly to preserve the socio-economic, racial, and gender diversity of the children as a representation of the broader Chicago community. Of the `r length(subjs)` children, `r demos %>% summarise(female = sum(sex == "F")) %>% pull()` were girls, `r demos %>% summarise(black = sum(race == "BL")) %>% pull()` were Black and `r demos %>% summarise(mixed = sum(race == "2+")) %>% pull()` were Mixed-Race, and EDUCATION LEVEL.
+These children's data was drawn from the larger Language Development Project dataset pseudo-randomly to preserve the socio-economic, racial, and gender diversity of the children as a representation of the broader Chicago community. Of the `r length(subjs)` children, `r demos %>% summarise(female = sum(sex == "F")) %>% pull()` were girls, `r demos %>% summarise(black = sum(race == "BL")) %>% pull()` were Black and `r demos %>% summarise(mixed = sum(race == "2+")) %>% pull()` were Mixed-Race. Socioeconomic status was measured by family income, with four families earning less than `r income[3]` and two families earning `r income[6]`. The average family income for the subjects included in this study was `r income[4]`. 
 
 ## Data Processing
 
 The original Language Development Project transcripts consist of utterance-by-utterance transcriptions of the 90 minute recordings in CHAT format [@macwhinney2000], as well as a transcription of all communicative gestures produced by children and their conversational partners, including conventional gestures (e.g. waving "bye"), representational gestures (e.g. tracing the shape of a square), and deictic gestures (e.g. pointing to a ball).
 
-For each of these communicative acts, we coded all concrete noun referents indicated in either the spoken or gestural modality (see Table 1). As it is difficult both to gesture about, and to code, gestures for abstract entities like “weekend,” we focused only on concrete nouns. Spoken referents were coded only if a noun label was used (e.g. no pronouns were included), and only deictic gestures were counted as referential to minimize ambiguity in coding. SOME STUFF FROM MADDIE HERE
+For each of these communicative acts, we coded all concrete noun referents indicated in either the spoken or gestural modality (see Table 1). As it is difficult both to gesture about, and to code, gestures for abstract entities like “weekend,” we focused only on nouns that could be referred to in either gesture or speech. Spoken referents were coded only if a noun label was used (e.g. no pronouns were included), and only deictic gestures were counted as referential to minimize ambiguity in coding. Synonyms, nicknames, and proper nouns were all coded according to a manual that can be found at [CODING MANUAL???].
 
 
 ```{r coding_table, results="asis", tab.env = "table"}
@@ -113,13 +116,15 @@ print(coding_table, type = "latex", comment = F, table.placement = "tb",
 
 ## Validation
 
-### Reliability 
+### Referent Presentness
 
-STUFF FROM MADDIE HERE
+Although we coded for concrete referents that theoretically could be produced either in speech or in gesture, we found that these referents were not always physically present in the environment. Therefore, not every referent had a nonzero probability of being gestured to, as parents and children occasionally talk about events that have happened in the past or future, items that are in different locations, or characters who are not present. Therefore, we coded for whether the referent was physically present in the environment, and included only those referents that were present in the following analysis. On average, 87% of referents were present during the discourse, and there was a marginally significant effect of age, where the conversations with the youngest children involved 91% ref pres and XXXX NOT DONE.  
 
-### Referent Presence
+### Reliability
 
-STUFF FROM MADDIE HERE
+In order to assess the reliability of concrete noun coding, agreement was calculated for two independent coders. The Cohen's Kappa statistic for a comparison of 27% of the data was 0.81. Issues and discrepancies in coding decisions were dicussed and resolved during the formation of the coding manual.  
+
+Reliability for referent presentness was caluclated through a comparison of predicted and manual codes. Predicted presentness calculations were created using transcripts according to the guidelines found in [CODING MANUAL??]. Referents were predicted to be present in the environment if they were gestured to recently, if they were labeled by a subject, or if they were in a picture book. Maual presentness calculations were made for 5% of the data by watching the video recording of the 90-minute session and marking whether the object being disucssed was in view in the environment. The percent reliability for these sessions was 98%, with a Cohen's Kappa statistic of 0.979. 
 
 # Results
 

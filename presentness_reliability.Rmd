@@ -1,0 +1,101 @@
+---
+title: "presentness_reliability"
+author: "Maddie Meyers, Dan Yurovsky"
+date: "1/18/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(tidyverse)
+library(tidyboot)
+library(stringr) 
+library(lme4)
+library(directlabels)
+library(DT)
+library(broom)
+library(data.table)
+library(ggplot2)
+library(forcats)
+library(feather)
+
+opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
+               error = FALSE, cache = TRUE, tidy = FALSE)
+
+theme_dy <- function(base_size = 14) 
+{
+  theme_bw() +   
+  ggplot2::`%+replace%`(ggplot2::theme_bw(base_size = base_size),
+                          ggplot2::theme(panel.grid = ggplot2::element_blank(), 
+        legend.position = "none"))
+}
+
+theme_set(theme_dy())
+```
+
+## R Markdown
+
+We want to calculate the reliability of presentness codes that were created for 3 subjects--103_2, 50_1, and 42_5. 
+
+```{r load data}
+pres<-read.csv('ldp_data/fixed_data/42_5.csv')
+pres2<-read.csv('ldp_data/fixed_data/103_2.csv')
+pres3<-read.csv('ldp_data/fixed_data/50_1.csv')
+
+pres1<-bind_rows(pres, pres2, pres3) 
+
+max_ref_predicted <- pres1 %>%
+  ungroup() %>%
+  gather(ref_predicted_col, ref_predicted, ref_predicted) %>%
+  mutate(num_ref_predicted = str_count(ref_predicted,";")) %>%
+  summarise(num_ref_predicted = max(num_ref_predicted, na.rm = T)+1) %>%
+  as.integer()
+
+ref_predicted_list <- sapply(1:max_ref_predicted,function(x) paste0("ref_predicted",x))
+ref_pres_list <- sapply(1:max_ref_predicted,function(x) paste0("ref_pres",x))
+
+pres_reliability2 <- pres1 %>%
+  separate_("ref_predicted", ref_predicted_list, sep = ";", fill = "right") %>%
+  gather_("number", "ref_predicted", ref_predicted_list) %>%
+  filter(!is.na(ref_predicted)) %>%
+  mutate(ref_predicted=str_trim(ref_predicted)) %>%
+  select(time, subj, session, person, referent, ref_pres,  ref_predicted, chat, gloss) 
+
+pres_reliability <- pres_reliability2 %>%
+  separate_("ref_pres", ref_pres_list, sep = ";", fill = "right") %>%
+  gather_("number", "ref_pres", ref_pres_list) %>%
+  filter(!is.na(ref_pres)) %>%
+  mutate(ref_pres=str_trim(ref_pres),
+         ref_predicted=as.numeric(ref_predicted),
+         ref_pres=as.numeric(ref_pres)) %>%
+  select(time, subj, session, person, referent, ref_pres,  ref_predicted, chat, gloss) 
+
+write_feather(pres_reliability, "feathers/pres_reliability.feather")
+```
+
+```{r}
+pres<-pres_reliability %>%
+  filter(is.na(ref_predicted)==FALSE, is.na(ref_pres)==FALSE) 
+
+percent_reliability<-mean(pres$ref_predicted) / mean(pres$ref_pres)
+percent_reliability #WOW THAT IS SUPER DUPER ACCURATE 
+```
+
+```{r kappa stat}
+pres_reliability[is.na(pres_reliability)]<--1
+
+kappa_pres<-pres_reliability %>%
+  mutate(uniq=rownames(.)) %>%
+  select(uniq, ref_pres, ref_predicted) %>%
+  gather(variable, value, -(uniq)) %>%
+  spread(uniq, value) %>%
+  select(-variable) %>%
+  as.matrix()
+
+
+rpr_coef<-kripp.alpha(kappa_pres, method=c("interval"))
+rpr_coef
+#0.979 AMAZING! 
+```
+
+

@@ -53,5 +53,24 @@ presentness_age<-presentness %>%
   filter(is.na(ref_predicted)==FALSE) %>%
   group_by(age) %>%
   summarise(mean=(sum(ref_predicted)/n()))
+
+anova<-aov(mean ~ age, data=presentness_age)
+#marginally significant
+```
+
+```{r look at presentness refs}
+present_ref<-presentness %>%
+  filter(ref_predicted == 0 | ref_predicted == 1) %>%
+  group_by(referent, ref_predicted) %>%
+  summarise(ref_count= sum(n())) %>%
+  group_by(referent, ref_count, ref_predicted) %>%
+  summarise(n = (ref_predicted*ref_count), count=ref_count) %>%
+  group_by(referent) %>%
+  summarise(prop_pres=sum(n)/sum(count)) %>%
+  left_join(referents) 
+
+ggplot(aes(x=freq, y=prop_pres), data=present_ref) +
+  geom_line() +
+  geom_smooth()
 ```
 
