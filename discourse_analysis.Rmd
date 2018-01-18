@@ -45,7 +45,7 @@ theme_set(theme_dy())
 Setting up data
 ```{r load_data}
 # Original data
-loaded_subjs <- read_feather('feathers/loaded_subjs.feather')
+loaded_subjs <- read_feather('feathers/loaded_subjs_full.feather')
 # Referents and their frequencies
 referents <- read_feather("feathers/referents.feather")
 # End result of splitting referents and coding modality
@@ -256,70 +256,6 @@ ggplot(discourse_prop, aes(x=age, y=prop, fill=success)) +
 
 What happens when the referent is first introduced into the session? How does that change the discourse type effects we have seen? This analysis is not meaningful mainly because of the way we defined discourse type (depends on the previous utterance). First references would only be applicable for referent switches. 
 
-```{r discourse_first}
-first_success<-coded_responses %>%
-  filter(referent != "mom") %>%
-  mutate(isFirst = ifelse(time2 %in% first_data$time2, "first","not first")) %>% 
-  mutate(success = ifelse(lag(person) != person & lag(referent)==referent, "success", ifelse(lag(person) != person & lag(referent) !=referent, "switch", ifelse(lag(referent)==referent, "repeat", "same_per_swtich")))) %>%
-  filter(is.na(success)==FALSE) %>%
-  group_by(person, age, isFirst, success) %>%
-  summarise(count = sum(is.na(referent)==FALSE))
-
-ggplot(first_success, aes(x = age, y = count, color = isFirst, label = isFirst)) +
-  facet_grid(success~person) +
-  geom_point() +
-  geom_line()+
-  ylab("referent frequency") + 
-  scale_color_brewer(palette = "Set1")  +
-  geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
-  scale_x_continuous(limits = c(12, 40))
-```
-
 What about if we introduce modality into our discourse analysis? Are there any differences in the frequency of repetitions, same_per_switches, successes, or switches based on what modality the person is using?
 
 There is a lot of information on these graphs, which makes them somewhat difficult to read. It seems like the use of modality is pretty consistent across type of discourse, except for children of age 14mos. There may be something interesting happening at that age point only. 
-
-```{r discourse_modality}
-discourse_modality_prop <- discourse_success %>%
-  group_by(age, person, modality, success) %>%
-  summarise(n=n()) %>%
-  group_by(age, person, modality) %>%
-  mutate(prop= n/sum(n))
-
-ggplot(discourse_modality_prop, aes(x=age, y=prop, fill=success)) + 
-  facet_grid(modality~person) + 
-  geom_bar(stat="identity", position="stack") + 
-  theme(legend.position="bottom") + 
-  scale_fill_brewer(palette="Set1")+
-  scale_x_continuous(breaks = unique(discourse_prop$age)) +
-  ggtitle("proportion of parent to child strategy at each age")
-
-ggplot(discourse_modality_prop, aes(x=age, y=prop, color=success)) + 
-  facet_grid(modality~person) + 
-  geom_line() + 
-  geom_point() +
-  theme(legend.position="bottom") + 
-  scale_color_brewer(palette="Set1")+
-  scale_x_continuous(breaks = unique(discourse_prop$age)) +
-  ggtitle("proportion of parent to child strategy at each age")
-
-#it looks like there is something wrong here, because same_per_switch for parent >1
-ggplot(discourse_modality_prop, aes(x=age, y=prop, fill=modality)) + 
-  facet_grid(success~person) + 
-  geom_bar(stat="identity", position="stack") + 
-  theme(legend.position="bottom") + 
-  scale_fill_brewer(palette="Set1")+
-  scale_x_continuous(breaks = unique(discourse_prop$age)) +
-  ggtitle("proportion of parent to child strategy at each age")
-
-ggplot(discourse_modality_prop, aes(x=age, y=prop, color=modality)) + 
-  facet_grid(success~person) + 
-  geom_line() + 
-  geom_point() +
-  theme(legend.position="bottom") + 
-  scale_color_brewer(palette="Set1")+
-  scale_x_continuous(breaks = unique(discourse_prop$age)) +
-  ggtitle("proportion of parent to child strategy at each age")
-```
-
-What is the purpose of repetition for children? Are they using it simply to practice a recently-learned word, or are they using it as an attention-getting mechanism? 

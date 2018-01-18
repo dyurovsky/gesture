@@ -74,3 +74,24 @@ ggplot(aes(x=freq, y=prop_pres), data=present_ref) +
   geom_smooth()
 ```
 
+```{r}
+presentness_kids <- presentness %>%
+  group_by(subj, ref_predicted) %>%
+  summarise(ref_count=sum(n())) %>%
+  group_by(subj, ref_count, ref_predicted) %>%
+  summarise(n = (ref_predicted*ref_count), count=ref_count) %>%
+  filter(ref_predicted == 1 | ref_predicted==0) %>%
+  group_by(subj) %>%
+  summarise(prop= sum(n)/sum(count))
+#kids seem to be pretty similar
+
+presentness_kids2 <- presentness %>%
+  group_by(subj,age, ref_predicted) %>%
+  summarise(ref_count=sum(n())) %>%
+  group_by(subj, age,ref_count, ref_predicted) %>%
+  summarise(n = (ref_predicted*ref_count), count=ref_count) %>%
+  filter(ref_predicted == 1 | ref_predicted==0) %>%
+  group_by(subj, age) %>%
+  summarise(prop= sum(n)/sum(count)) 
+```
+
