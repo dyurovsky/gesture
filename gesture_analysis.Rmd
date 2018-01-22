@@ -55,8 +55,6 @@ loaded_subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
   mutate(time = 1:n()) %>%
   select(time, time2, subj, age, person, spoken_obj, gestured_obj, referent, ref_pres, ref_predicted, gloss, chat) 
 
-fill_vals<-which(is.na(loaded_subjs$ref_predicted)==TRUE & is.na(loaded_subjs$referent)==FALSE)
-
 demos <- loaded_subjs %>%
   select(subj,age) %>%
   distinct(subj,age, .keep_all = TRUE) %>%
@@ -211,7 +209,7 @@ coded_responses <- spread_referents %>%
 write_feather(coded_responses, "feathers/coded_responses.feather")
 
 modality_data <- coded_responses %>%
-  filter(ref_predicted=="1") %>%
+  filter(ref_predicted!="1") %>%
   group_by(person, age, subj, freq_cut, rank, freq, referent, modality, chat) %>%
   summarise(n = n()) %>%
   spread(modality, n, fill = 0)

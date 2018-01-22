@@ -27,9 +27,9 @@ subjs <- map(files, fread, sep=",", na.strings = c("NA", "")) %>%
   mutate(rownum = 1:nrow(.)) %>%
   mutate(ref_predicted=as.numeric(ref_predicted))
 
-#pres_probs<-subjs %>%
- # filter(is.na(referent)==FALSE & is.na(ref_predicted)==TRUE) %>%
-  #mutate(ref_predicted = 1)
+pres_probs<-subjs %>%
+  filter(is.na(referent)==FALSE & is.na(ref_predicted)==TRUE | (ref_predicted==10.5)) %>%
+  mutate(fix_predicted = 1)
 
 fixed_referents <- subjs %>%
   filter(referent %in% referent_changes$referent) %>%
@@ -38,12 +38,12 @@ fixed_referents <- subjs %>%
   rename(referent = fix_referent) %>%
   bind_rows(filter(subjs, !rownum %in% .$rownum)) %>%
   arrange(rownum) %>%
-  #filter(rownum %in% pres_probs$rownum) %>%
-  #left_join(pres_probs) %>%
-  #select(-ref_predicted) %>%
-  #rename(ref_predicted=fix_predicted) %>%
-  #bind_rows(filter(subjs, !rownum %in% .$rownum)) %>%
-  #arrange(rownum) %>%
+  filter(rownum %in% pres_probs$rownum) %>%
+  left_join(pres_probs) %>%
+  select(-ref_predicted) %>%
+  rename(ref_predicted= fix_predicted) %>%
+  bind_rows(filter(subjs, !rownum %in% .$rownum)) %>%
+  arrange(rownum) %>%
   select(-rownum)
   
 cols <- names(fixed_referents) 

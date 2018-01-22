@@ -55,12 +55,12 @@ presentness_age<-presentness %>%
   summarise(mean=(sum(ref_predicted)/n()))
 
 anova<-aov(mean ~ age, data=presentness_age)
-#marginally significant
+#significant!! 
+summary(anova)
 ```
 
 ```{r look at presentness refs}
 present_ref<-presentness %>%
-  filter(ref_predicted == 0 | ref_predicted == 1) %>%
   group_by(referent, ref_predicted) %>%
   summarise(ref_count= sum(n())) %>%
   group_by(referent, ref_count, ref_predicted) %>%
@@ -70,8 +70,9 @@ present_ref<-presentness %>%
   left_join(referents) 
 
 ggplot(aes(x=freq, y=prop_pres), data=present_ref) +
-  geom_line() +
-  geom_smooth()
+  geom_point() +
+  geom_smooth() #don't seem to be any frequency effects which is interesting
+
 ```
 
 ```{r}
@@ -80,18 +81,50 @@ presentness_kids <- presentness %>%
   summarise(ref_count=sum(n())) %>%
   group_by(subj, ref_count, ref_predicted) %>%
   summarise(n = (ref_predicted*ref_count), count=ref_count) %>%
-  filter(ref_predicted == 1 | ref_predicted==0) %>%
   group_by(subj) %>%
   summarise(prop= sum(n)/sum(count))
 #kids seem to be pretty similar
 
-presentness_kids2 <- presentness %>%
-  group_by(subj,age, ref_predicted) %>%
+presentness_person<-presentness %>%
+  group_by(person, age, ref_predicted) %>%
   summarise(ref_count=sum(n())) %>%
-  group_by(subj, age,ref_count, ref_predicted) %>%
-  summarise(n = (ref_predicted*ref_count), count=ref_count) %>%
-  filter(ref_predicted == 1 | ref_predicted==0) %>%
-  group_by(subj, age) %>%
-  summarise(prop= sum(n)/sum(count)) 
+  group_by(person, age, ref_count, ref_predicted) %>%
+  summarise(n=(ref_predicted*ref_count), count=ref_count) %>%
+  group_by(person, age) %>%
+  summarise(prop=sum(n)/sum(count)) %>%
+  mutate(person2=ifelse(person=="child", 1, 0))
+
+#doesn't seem to be a person difference--let's make sure:
+t.test(prop~person2, data=presentness_person)
+#not significant 
+
+#what about person differences by referent? Maybe parents always talk about some things that are not present but kids only talk about them when they are present
+presentness_ref <- presentness %>%
+  group_by(person, referent, ref_predicted) %>%
+  summarise(ref_count=sum(n())) %>%
+  group_by(person, referent, ref_count, ref_predicted) %>%
+  summarise(n=(ref_predicted*ref_count), count=ref_count) %>%
+  group_by(person, referent) %>%
+  summarise(prop=sum(n)/sum(count)) %>%
+  arrange(referent) %>%
+  mutate(person2=ifelse(person=="child", 1, 0))
+#it looks like all these proportions are pretty similar for parent and child by referent 
+
+t.test(prop~person2, data=presentness_ref)
+#nope, no difference!
+
+```
+
+Are there any differences with speech production probability and presentness? 
+```{r}
+#BROKEN DONT LOOK AT 
+plotting_data <- coded_responses %>%
+  mutate(ref_predicted=as.numeric(ref_predicted)) %>%
+  mutate(ifelse(referent %in% present_ref$referent, present_ref$prop_pres, 500)) %>%
+  group_by(person, age, subj, prop, modality) %>%
+  summarise(n = n()) %>%
+  mutate(prob = n/sum(n)) %>%
+  group_by(person, age, modality, prop) %>%
+  tidyboot_mean(prob)
 ```
 

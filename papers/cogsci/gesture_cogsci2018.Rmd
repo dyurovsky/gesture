@@ -36,6 +36,7 @@ knitr::opts_chunk$set(fig.width=3, fig.height=3, fig.crop = F, fig.pos = "tb",
 library(png)
 library(grid)
 library(xtable)
+#options(xtable.floating= FALSE)
 library(feather)
 library(tidyverse)
 
@@ -84,8 +85,6 @@ ages <- coded_responses %>%
 
 income<-c("Less than $15,000", "$15,000-$34,999", "$34,999-$49,999", "$50,000-$74,999", "$75,000-$99,999", "$100,000 or more" )
 
-
-
 ```
 
 Get a corpus, code the corpus,
@@ -98,7 +97,7 @@ These children's data was drawn from the larger Language Development Project dat
 
 ## Data Processing
 
-The original Language Development Project transcripts consist of utterance-by-utterance transcriptions of the 90 minute recordings in CHAT format [@macwhinney2000], as well as a transcription of all communicative gestures produced by children and their conversational partners, including conventional gestures (e.g. waving "bye"), representational gestures (e.g. tracing the shape of a square), and deictic gestures (e.g. pointing to a ball).
+The original Language Development Project transcripts consist of utterance-by-utterance transcriptions of the 90 minute recordings in CHAT format [@macwhinney2000], as well as a transcription of all communicative gestures produced by children and their conversational partners, including conventional gestures (e.g. waving 'bye"), representational gestures (e.g. tracing the shape of a square), and deictic gestures (e.g. pointing to a ball).
 
 For each of these communicative acts, we coded all concrete noun referents indicated in either the spoken or gestural modality (see Table 1). As it is difficult both to gesture about, and to code, gestures for abstract entities like “weekend,” we focused only on nouns that could be referred to in either gesture or speech. Spoken referents were coded only if a noun label was used (e.g. no pronouns were included), and only deictic gestures were counted as referential to minimize ambiguity in coding. Synonyms, nicknames, and proper nouns were all coded according to a manual that can be found at [CODING MANUAL???].
 
@@ -112,13 +111,14 @@ coding_table <- read_csv("figs/coding_table.csv") %>%
 
 print(coding_table, type = "latex", comment = F, table.placement = "tb",
       include.rownames = FALSE)
+
 ```
 
 ## Validation
 
 ### Referent Presentness
 
-Although we coded for concrete referents that theoretically could be produced either in speech or in gesture, we found that these referents were not always physically present in the environment. Therefore, not every referent had a nonzero probability of being gestured to, as parents and children occasionally talk about events that have happened in the past or future, items that are in different locations, or characters who are not present. Therefore, we coded for whether the referent was physically present in the environment, and included only those referents that were present in the following analysis. On average, 87% of referents were present during the discourse. There was a marginally significant effect of age (p=0.0098), where 91% of referents with the youngest children (14 months) were present, and 84% of referents with the oldest children (34 months) were present. 
+Although we coded for concrete referents that theoretically could be produced either in speech or in gesture, we found that these referents were not always physically present in the environment. Therefore, not every referent had a nonzero probability of being gestured to, as parents and children occasionally talk about events that have happened in the past or future, items that are in different locations, or characters who are not present. Therefore, we coded for whether the referent was physically present in the environment, and included only those referents that were present in the following analysis. On average, 87% of referents were present during the discourse. There was a significant effect of age (p<0.0098), where 91% of referents with the youngest children (14 months) were present, and 84% of referents with the oldest children (34 months) were present. 
 
 ### Reliability
 
