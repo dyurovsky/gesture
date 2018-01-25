@@ -50,12 +50,10 @@ summary(presentness$ref_predicted)
 #mean presentness value is 0.8671, which means that 86.71% of referents are present on average
 
 presentness_age<-presentness %>%
-  filter(is.na(ref_predicted)==FALSE) %>%
   group_by(age) %>%
   summarise(mean=(sum(ref_predicted)/n()))
 
 anova<-aov(mean ~ age, data=presentness_age)
-#significant!! 
 summary(anova)
 ```
 
@@ -69,7 +67,18 @@ present_ref<-presentness %>%
   summarise(prop_pres=sum(n)/sum(count)) %>%
   left_join(referents) 
 
-ggplot(aes(x=freq, y=prop_pres), data=present_ref) +
+present_ref %>%
+  mutate(freq_cut = as.numeric(cut(log(freq), 4))) %>%
+  group_by(freq_cut) %>%
+  tidyboot_mean(prop_pres) %>%
+  ggplot(aes(x = freq_cut, y = empirical_stat)) + 
+  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper)) + 
+  theme_classic()
+
+present_model <- glm(cbind(prop_pres*freq, (1-prop_pres)*freq) ~ log(freq), family = "binomial", data = present_ref)
+
+
+ggplot(aes(x=log(freq), y=prop_pres), data=present_ref) +
   geom_point() +
   geom_smooth() #don't seem to be any frequency effects which is interesting
 

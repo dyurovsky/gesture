@@ -39,13 +39,14 @@ library(xtable)
 #options(xtable.floating= FALSE)
 library(feather)
 library(tidyverse)
+library(irr)
 
 theme_set(theme_classic(base_size = 10))
 ```
 
 # Introduction
 
-Young children are inundated with language, hearing on the order of 30 million words by the time they are four years old [@hart1995]. From the statisitcal relationships within and among these words, children must discover the latent structures that allow them to become fluent speakers of their native language. Some of these words will be overheard, addressed by one parent to another or a sibling to a friend. However, some will be directed to the child, and these words maybe be particularly supportive of learning [@weisleder2013]. Child-directed speech is not merely a corpus of well-formed language; It is contingent on the child's own attention, interests, and prior knowledge, and thus can be directed *by the child themself*.
+Young children are inundated with language, hearing on the order of 30 million words by the time they are four years old [@hart1995]. From the statistical relationships within and among these words, children must discover the latent structures that allow them to become fluent speakers of their native language. Some of these words will be overheard, addressed by one parent to another or a sibling to a friend. However, some will be directed to the child, and these words maybe be particularly supportive of learning [@weisleder2013]. Child-directed speech is not merely a corpus of well-formed language; It is contingent on the child's own attention, interests, and prior knowledge, and thus can be directed *by the child themself*.
 
 One way for children to direct their own input is to ask questions, a tool they employ with near-frustrating frequency and regularity. In her analysis of 5 children from the Brown and Kuczaj corpora in CHILDES, @chouinard2007 reports children asking over 100 questions per hour they interaction with adults over the 2-5 year range. However, long before they can explicitly direct their input with wh-questions, children can direct their input simply by referring to objects in their environment. Having observed a referential event, parents will often follow-in with expansions and additional information about the child's target of interest [@clark2014]
 
@@ -72,7 +73,9 @@ We test all three of these predictions in a large longitidunal corpus of parent-
 ```{r load_corpus}
 coded_responses <- read_feather("../../feathers/coded_responses.feather")
 demos <- read_feather("../../feathers/demos.feather") %>%
-  filter(id != 47, id != 110)
+  filter(id != 47, id != 110) %>%
+  mutate(income2=ordered(round(income), levels=c(1, 2, 3, 4, 5, 6), labels=c("Less than $15,000", "$15,000 to $34,999", "$35,000 to $49,999", "$50,000 to $74,999", "$75,000 to $99,999", "greater than $100,000")))
+         
 referents <- read_feather("../../feathers/referents.feather")
 
 subjs <- coded_responses %>%
@@ -83,7 +86,7 @@ ages <- coded_responses %>%
   distinct(age) %>%
   pull()
 
-income<-c("Less than $15,000", "$15,000-$34,999", "$34,999-$49,999", "$50,000-$74,999", "$75,000-$99,999", "$100,000 or more" )
+income_labs<-c("Less than $15,000", "$15,000 to $34,999", "$35,000 to $49,999", "$50,000 to $74,999", "$75,000 to $99,999", "Greater than $100,000")
 
 ```
 
@@ -93,7 +96,7 @@ Get a corpus, code the corpus,
 
 The data analyzed here are transcriptions of recordings parent-child interactions in the homes of `r length(subjs)` children from the Chicagoland area. Each recording was ~90min long, and participants were given no instructions about how to interact--the goal was to observe the naturalistic ecology of language learning. Each child was recorded `r length(ages)` times at 4-month intervals starting at `r min(ages)`-mo. and ending at `r max(ages)`-mo. 
 
-These children's data was drawn from the larger Language Development Project dataset pseudo-randomly to preserve the socio-economic, racial, and gender diversity of the children as a representation of the broader Chicago community. Of the `r length(subjs)` children, `r demos %>% summarise(female = sum(sex == "F")) %>% pull()` were girls, `r demos %>% summarise(black = sum(race == "BL")) %>% pull()` were Black and `r demos %>% summarise(mixed = sum(race == "2+")) %>% pull()` were Mixed-Race. Socioeconomic status was measured by family income, with four families earning less than `r income[3]` and two families earning `r income[6]`. The average family income for the subjects included in this study was `r income[4]`. 
+These children's data was drawn from the larger Language Development Project dataset pseudo-randomly to preserve the socio-economic, racial, and gender diversity of the children as a representation of the broader Chicago community. Of the `r length(subjs)` children, `r demos %>% summarise(female = sum(sex == "F")) %>% pull()` were girls, `r demos %>% summarise(black = sum(race == "BL")) %>% pull()` were Black and `r demos %>% summarise(mixed = sum(race == "2+")) %>% pull()` were Mixed-Race. Socioeconomic status was measured by family income, with `r demos %>% summarise(low_thresh = sum(income2 == "$15,000 to $34,999"))` families earning `r income_labs[2]` and `r demos %>% summarise(high_thresh = sum(income2 == "greater than $100,000"))` families earning `r income_labs[6]`. The average family income for the subjects included in this study was `r factor(round(mean(demos$income)), levels=c(1, 2, 3, 4, 5, 6), labels=c("Less than $15,000", "$15,000 to $34,999", "$35,000 to $49,999", "$50,000 to $74,999", "$75,000 to $99,999", "Greater than $100,000")) `. 
 
 ## Data Processing
 
@@ -118,13 +121,66 @@ print(coding_table, type = "latex", comment = F, table.placement = "tb",
 
 ### Referent Presentness
 
-Although we coded for concrete referents that theoretically could be produced either in speech or in gesture, we found that these referents were not always physically present in the environment. Therefore, not every referent had a nonzero probability of being gestured to, as parents and children occasionally talk about events that have happened in the past or future, items that are in different locations, or characters who are not present. Therefore, we coded for whether the referent was physically present in the environment, and included only those referents that were present in the following analysis. On average, 87% of referents were present during the discourse. There was a significant effect of age (p<0.0098), where 91% of referents with the youngest children (14 months) were present, and 84% of referents with the oldest children (34 months) were present. 
+```{r presentness_data}
+presentness<-coded_responses %>%
+  mutate(ref_predicted=as.numeric(ref_predicted))
+
+presentness_age<-presentness %>%
+  filter(is.na(ref_predicted)==FALSE) %>%
+  group_by(age) %>%
+  summarise(mean=(sum(ref_predicted)/n()))
+
+presentness_person<-presentness %>%
+  group_by(person) %>%
+  summarise(mean=sum(ref_predicted)/n()) 
+```
+
+Although we coded for concrete referents that had the potential to be produced either in speech or in gesture, we found that these referents were not always physically present in the environment. Not every referent had a nonzero probability of being gestured to, as parents and children occasionally talked about events that have happened in the past or future, items that are in different locations, or characters who are not present. Therefore, we coded for whether the referent was present in the environment, and included only those referents that were present in the following analysis. On average, `r round(mean(presentness$ref_predicted),2)*100`% of referents were present during the discourse. The predicted number of referents present ranged from `r round(min(presentness_age$mean),2)*100`% present at age=`r min(presentness_age$age)`mos to `r round(max(presentness_age$mean),2)*100`% present at age=`r max(presentness_age$age)`mos. Referent presentness did not appear to vary based on whether it was produced by the parent or child. 
 
 ### Reliability
 
-In order to assess the reliability of concrete noun coding, agreement was calculated for two independent coders. The Cohen's Kappa statistic for a comparison of 27% of the data was 0.81. Issues and discrepancies in coding decisions were dicussed and resolved during the formation of the coding manual.  
+```{r reliability}
+nicole_responses<-read_feather("../../feathers/interrater_data_nicole.feather")
+maddie_responses<-read_feather("../../feathers/interrater_data_maddie.feather") 
 
-Reliability for referent presentness was caluclated through a comparison of predicted and manual codes. Predicted presentness calculations were created using transcripts according to the guidelines found in [CODING MANUAL??]. Referents were predicted to be present in the environment if they were gestured to recently, if they were labeled by a subject, or if they were in a picture book. Maual presentness calculations were made for 5% of the data by watching the video recording of the 90-minute session and marking whether the object being disucssed was in view in the environment. The percent reliability for these sessions was 98%, with a Cohen's Kappa statistic of 0.979. 
+interrater_data<-maddie_responses %>%
+  full_join(nicole_responses, by = c("time", "subj", "age")) %>%
+  arrange(time) %>%
+  select(coder.x, coder.y, referent.x, referent.y, modality.x, modality.y, time) %>%
+  mutate(coder.x="Maddie", coder.y="Nicole") %>%
+  mutate(uniq = rownames(.)) %>%
+  select(-time)
+
+long_interrater <- rbind(interrater_data %>% select(coder=coder.x, referent=referent.x, modality=modality.x, uniq),
+              interrater_data %>% select(coder=coder.y, referent=referent.y, modality=modality.y, uniq))
+
+long_interrater<-long_interrater %>%
+  select(coder, uniq, referent, modality) %>%
+  arrange(uniq) %>%
+  gather(variable, value, -(coder:uniq)) %>%
+  unite(temp, uniq, variable) %>%
+  spread(temp, value) %>%
+  select(-coder) %>%
+  as.matrix()
+
+irr_coef<-kripp.alpha(long_interrater, method=c("nominal"))
+
+pres_reliability<-read_feather("../../feathers/pres_reliability.feather")
+
+child_reliability <- pres_reliability %>%
+  filter(person == "child") %>%
+  select(ref_pres, ref_predicted) %>%
+  kappa2()
+
+all_reliability<-pres_reliability %>%
+  select(ref_pres, ref_predicted) %>%
+  kappa2()
+
+```
+
+In order to assess the reliability of concrete noun coding, agreement was calculated for two independent coders. The Krippendorff's Alpha statistic for a comparison of 27% of the data was $\alpha$  = `r round(irr_coef$value,2)`. Issues and discrepancies in coding decisions were dicussed and resolved during the formation of a coding manual.  
+
+Reliability for referent presentness was caluclated through a comparison of predicted and manual codes. Predicted presentness calculations were created using transcripts according to the guidelines found in [CODING MANUAL??]. Referents were predicted to be present in the environment if they were gestured to recently, if they were labeled by a subject, or if they were in a picture book. Manual presentness calculations were made for 5% of the data by watching the video recordings of the 90-minute observational sessions and marking whether the object being discussed was physically present. For child-produced referents, the Cohen's Kappa reliability of presentness predictions was $\kappa$= `r round(child_reliability$value,2)`, and for combined parent- and child-produced language, the reliability was $\kappa$=`r round(all_reliability$value,2)`. 
 
 # Results
 

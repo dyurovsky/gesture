@@ -18,6 +18,7 @@ library(data.table)
 library(ggplot2)
 library(forcats)
 library(feather)
+library(irr)
 
 opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
                error = FALSE, cache = TRUE, tidy = FALSE)
@@ -37,7 +38,7 @@ theme_set(theme_dy())
 
 We want to calculate the reliability of presentness codes that were created for 3 subjects--103_2, 50_1, and 42_5. 
 
-```{r load data}
+```{r load data-- SKIP IF HAVE FEATHER}
 pres<-read.csv('ldp_data/fixed_data/42_5.csv')
 pres2<-read.csv('ldp_data/fixed_data/103_2.csv')
 pres3<-read.csv('ldp_data/fixed_data/50_1.csv')
@@ -73,18 +74,21 @@ pres_reliability <- pres_reliability2 %>%
 write_feather(pres_reliability, "feathers/pres_reliability.feather")
 ```
 
-```{r}
-pres<-pres_reliability %>%
-  filter(is.na(ref_predicted)==FALSE, is.na(ref_pres)==FALSE) 
 
-percent_reliability<-mean(pres$ref_predicted) / mean(pres$ref_pres)
-percent_reliability #WOW THAT IS SUPER DUPER ACCURATE 
+```{r load data}
+pres_reliability<-read_feather("feathers/pres_reliability.feather")
 ```
 
-```{r kappa stat}
-pres_reliability[is.na(pres_reliability)]<--1
+```{r kappa}
+pres_reliability %>%
+  filter(person == "child") %>%
+  select(ref_pres, ref_predicted) %>%
+  kappa2()
 
-kappa_pres<-pres_reliability %>%
+```
+
+```{r alpha stat}
+alpha_pres<-pres_reliability %>%
   mutate(uniq=rownames(.)) %>%
   select(uniq, ref_pres, ref_predicted) %>%
   gather(variable, value, -(uniq)) %>%
