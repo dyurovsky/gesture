@@ -15,19 +15,19 @@ abstract:
     "We test this prediction in a corpus of videos of parent-child interaction in the home recorded longitudinally from 14- to 34- months. naturalistic parent-child o"
     
 keywords:
-    "Add your choice of indexing terms or keywords; kindly use a semi-colon; between each term."
+    "communication; language acquisition; gesture; corpus analysis"
     
 output: cogsci2016::cogsci_paper
 ---
 
 ```{r global_options, include=FALSE}
-rm(list=ls())
 knitr::opts_chunk$set(fig.width=3, fig.height=3, fig.crop = F, fig.pos = "tb", 
-                      fig.path='figs/',
-                      echo=F, warning=F, cache=F, message=F, sanitize = T)
+                      fig.path='figs/', echo = F, warning = F, cache = F, 
+                      message = F, sanitize = T)
 ```
 
 ```{r, libraries}
+library(tidyverse)
 library(png)
 library(grid)
 library(xtable)
@@ -35,6 +35,10 @@ library(xtable)
 library(feather)
 library(tidyverse)
 library(irr)
+library(tidyboot)
+library(directlabels)
+library(lme4)
+library(broom)
 
 theme_set(theme_classic(base_size = 10))
 ```
@@ -49,19 +53,20 @@ The core of extended communicative interactions is taking turns: participants ea
 
 The regularity of these turns makes communication inherently time constrained: If you stop talking for too long, you lose your turn. Adults are sensitive to this time pressure, for instance producing filled pauses like "um" when they are having difficulty retrieving the words they want to produce in order to signal their desire to hold onto their turn [@clark2002]. If retrieval is still unsuccessful, lingusitically-proficient adults can opt for an alternative word or even a description that gives their interlocutor enough information to help retrieve the word for them [@clark1989]. Children still learning their native language, for whom such strategies are unavailable, might resort to an alternative mode of communcation: pointing. 
 
-Children produce deictic gestures early in infancy, and appear to understand that these gestures both direct attention and communicate intentions by the time they are 12-months-old [@liszkowski2007; @tomasello2007]. Around the same time, infants begin producing their first spoken words [@bloom2000]. Over the next few years, infants will produce many more words, and need to rely less on deictic gesture to communicate. However, while children master some words early, others which are less frequent may remain difficulty to retrieve and produce. If children, like adults, are sensitive to the time pressures of communication, then then they may use gesture even for *known* words if these words are slow to come. 
-# Communication as a race between modalities
+Children produce deictic gestures early in infancy, and appear to understand that these gestures both direct attention and communicate intentions by the time they are 12-months-old [@liszkowski2007; @tomasello2007]. Around the same time, infants begin producing their first spoken words [@bloom2000]. Over the next few years, infants will produce many more words, and need to rely less on deictic gesture to communicate. However, while children master some words early, others which are less frequent may remain difficulty to retrieve and produce. If children, like adults, are sensitive to the time pressures of communication, then then they may use gesture even for *known* words if these words are slow to come.
+
+## Communication as a race between modalities
 
 When children wish to share their interest in an object with a caregiver, they have two modalities available to them. One possibility is to use spoken language, producing the canonical label for it (e.g. "ball"). Alternatively, they can use a deictic gesture, e.g. a point, to draw the caregiver's attention to it. When should children use each of these modalities? 
 
 If the child does not know that the object is called "ball," they have no choice but to point. However, if they do know it's label, time pressure on communication produces a race between modalities. If the child can recall the word quickly, they should prefer to use language--as speech is less effortful than pointing [@zipf1949]. However, if the recall process of recalling and producing the word is progressing too slowly, the child risks losing their conversational turn and should instead point. 
 
-```{r lba_mod, fig.env = "figure", fig.align='center', set.cap.width=T, num.cols.cap=1, fig.cap = "Referential communication as a race between speech and gesture. While the rate of pointing should be independent of referent, the speech accumulator should vary with properties of words, e.g. frequency"}
+```{r lba-mod, fig.env = "figure", fig.align='center', set.cap.width=T, num.cols.cap=1, fig.cap = "Referential communication as a race between speech and gesture. The drift rate of pointing should be independent of referent, but speech should vary with properties of words, e.g. frequency"}
 img <- png::readPNG("figs/lba_mod_simple.png")
 grid::grid.raster(img)
 ```
 
-This kind of race model can be formalized nicely as two competing accumulators [see e.g. @brown2008]. Each modality accumulates activation at its own independent rate, and whichever is the first to reach threshold wins the race and is chosen as the referential modality (Figure 1). Although the difficulty of pointing may vary due to issues of proximity of the speakers to each-other, the location of the target referent, etc., the difficulty of pointing should in general be independent of the thing being pointed to. On the other hand, the difficulty of recalling and producing a word varies from word to word. In adults, this difficulty is influenced by many features of the word, including the phonology and orthography of both the word and its neighbors in the lexicon [see e.g. @vitevitch2008]. Here we focus on just one--contributor: Input frequency [@wingfield1968]. The more frequently we hear a word, the easier it is for us to retrieve and produce it. Children's *language processing* shows similar effects of frequency--children's speed and accuracy of known words increases as they become more frequent [@swingley1999]. If their *language production* is similarly affected by frequency, than the rate of the speech accumulator should increase as frequency increases, resulting in it winning the race for reference more often.
+This kind of race model can be formalized nicely as two competing accumulators [see e.g. @brown2008]. Each modality accumulates activation at its own independent rate, and whichever is the first to reach threshold wins the race and is chosen as the referential modality (Figure \ref{fig:lba-mod}). Although the difficulty of pointing may vary due to issues of proximity of the speakers to each-other, the location of the target referent, etc., the difficulty of pointing should in general be independent of the thing being pointed to. On the other hand, the difficulty of recalling and producing a word varies from word to word. In adults, this difficulty is influenced by many features of the word, including the phonology and orthography of both the word and its neighbors in the lexicon [see e.g. @vitevitch2008]. Here we focus on just one--contributor: Input frequency [@wingfield1968]. The more frequently we hear a word, the easier it is for us to retrieve and produce it. Children's *language processing* shows similar effects of frequency--children's speed and accuracy of known words increases as they become more frequent [@swingley1999]. If their *language production* is similarly affected by frequency, than the rate of the speech accumulator should increase as frequency increases, resulting in it winning the race for reference more often.
 
 The utility of this framework is that it makes detailed predictions about the relationship between modality and production time as features of the target referent change. We test three specific predictions of this model in children's spontaneous productions from 14- to 34-months:
 
@@ -73,8 +78,14 @@ The utility of this framework is that it makes detailed predictions about the re
 
 # Method
 
-```{r load_corpus}
-coded_responses <- read_feather("../../feathers/coded_responses.feather")
+```{r load_corpus, cache = T}
+
+referents <- read_feather("../../feathers/referents.feather") %>%
+  mutate(freq_cut = 5- as.numeric(cut(log(freq), 4)))
+
+coded_responses <- read_feather("../../feathers/coded_responses.feather") %>%
+  select(-freq_cut, -rank, - freq) %>%
+  left_join(referents)
 
 demos <- read_feather("../../feathers/demos.feather") %>%
   filter(!id %in% c(47, 110)) %>%
@@ -84,8 +95,6 @@ demos <- read_feather("../../feathers/demos.feather") %>%
                                 "$75,000 to $99,999", 
                                 "greater than $100,000")))
          
-referents <- read_feather("../../feathers/referents.feather")
-
 subjs <- coded_responses %>%
   distinct(subj) %>%
   pull()
@@ -99,16 +108,15 @@ ages <- coded_responses %>%
 
 The data analyzed here are transcriptions of recordings parent-child interactions in the homes of `r length(subjs)` children from the Chicagoland area. Each recording was ~90min long, and participants were given no instructions about how to interact--the goal was to observe the natural ecology of language learning. Each child was recorded `r length(ages)` times at 4-month intervals starting at `r min(ages)`-mo. and ending at `r max(ages)`-mo. 
 
+## Participants
+
 These children's data was drawn from the larger Language Development Project dataset pseudo-randomly to preserve the socio-economic, racial, and gender diversity representative of the broader Chicago community. Of the `r length(subjs)` children, `r demos %>% summarise(female = sum(sex == "F"))` were girls, `r demos %>% summarise(black = sum(race == "BL"))` were Black and `r demos %>% summarise(mixed = sum(race == "2+"))` were Mixed-Race. Familes spanned a broad range of incomes, with `r demos %>% filter(income == min(income)) %>% nrow()` families earning `r demos %>% filter(income == min(income)) %>% pull(income_factor) %>% first()` and `r demos %>% filter(income == max(income)) %>% nrow()` families earning `r demos %>% filter(income == max(income)) %>% pull(income_factor) %>% first()`. The median family income was `r demos %>% filter(income == median(income)) %>% pull(income_factor) %>% first()`. 
 
 ## Data Processing
 
 The original Language Development Project transcripts consist of utterance-by-utterance transcriptions of the 90 minute recordings in CHAT format [@macwhinney2000], as well as a transcription of all communicative gestures produced by children and their conversational partners, including conventional gestures (e.g. waving "bye"), representational gestures (e.g. tracing the shape of a square), and deictic gestures (e.g. pointing to a ball).
 
-For each of these communicative acts, we coded all concrete noun referents indicated in either the spoken or gestural modality (see Table 1). As it is difficult both to gesture about, and to code, gestures for abstract entities like “weekend,” we focused only on nouns that could be referred to in either gesture or speech. Spoken referents were coded only if a noun label was used (e.g. no pronouns were included), and only deictic gestures were counted as referential to minimize ambiguity in coding. Synonyms, nicknames, and proper nouns were all coded according to a manual that can be found in the linked github repostory.
-
-```{r coding_table, results="asis", tab.env = "table"}
-
+```{r coding-table, results="asis", tab.env = "table", cache = T}
 coding_table <- read_csv("figs/coding_table.csv") %>%
   remove_rownames() %>%
   select(-referent) %>%
@@ -120,13 +128,16 @@ print(coding_table, type = "latex", comment = F, table.placement = "tb",
       size="\\fontsize{9pt}{9pt}\\selectfont")
 ```
 
+
+For each of these communicative acts, we coded all concrete noun referents indicated in either the spoken or gestural modality (see Table \ref{tab:coding-table}). As it is difficult both to gesture about, and to code, gestures for abstract entities like “weekend,” we focused only on nouns that could be referred to in either gesture or speech. Spoken referents were coded only if a noun label was used (e.g. no pronouns were included), and only deictic gestures were counted as referential to minimize ambiguity in coding. Synonyms, nicknames, and proper nouns were all coded according to a manual that can be found in the linked github repostory.
+
 ## Reliability
 
 In order to ensure the integrity of the coded data for further analyses, we first assessed inter-rater reliability, and then assessed whether the coded referents were present in the scene.
 
 ### Inter-Rater Reliability
 
-```{r reliability}
+```{r reliability, cache = T}
 nicole_responses <- 
   read_feather("../../feathers/interrater_data_nicole.feather") %>%
   select(subj, age, time, referent, modality) %>%
@@ -184,9 +195,9 @@ kappa <- irr_data %>%
 
 To assess the reliability of referent coding, 25% of the transcripts were coded by a second indepdenent coder. Reliability between coders was good (Cohen's $\kappa$ = `r round(kappa$value,2)`). Issues and discrepancies in coding decisions were dicussed and resolved during the formation of a coding manual.  
 
-### Referent Presentness
+### Presence of referents
 
-```{r presentness_data}
+```{r presentness_data, cache = T}
 presentness <- coded_responses %>%
   mutate(ref_predicted = as.numeric(ref_predicted))
 
@@ -222,9 +233,9 @@ The key predictions of our race model of reference all connect the ease of recal
 
 ## Estimating Frequency
 
-To estimate the input frequency of each referent in the corpus, we summed its frequency of use across all children and parents and across both the speech and gestural modalities. This estimator is of course imperfect-- It assumes, for instance, that every child receives the same input, and that input frequency is stationary across development. Nonetheless, because of the difficulty of estimating these frequencies well especially from a corpus of this size, we felt that a more complex estimator would introduce more error than it was worth.
+To estimate the input frequency of each referent in the corpus, we summed its frequency of use across all children and parents and across both the speech and gestural modalities. This estimator is of course imperfect-- It assumes, for instance, that every child receives the same input, and that input frequency is stationary across development. Nonetheless, because of the difficulty of estimating these frequencies well, especially from a corpus of this size, we felt that a more complex estimator would introduce more error than it was worth.
 
-```{r freq_fig,  fig.width=3.5, fig.height=2, set.cap.width=T, num.cols.cap=1, fig.cap = "One column image"}
+```{r freq-fig,  fig.width=3.5, fig.height=2, set.cap.width=T, num.cols.cap=1, fig.cap = "Referents varied widely in their frequency of use, appearing approximately Zipfian. We predict that referents frequent in the input--like baby--should be be more likely to emerge in speech than infrequent referents like cauliflower", cache = T}
 label_refs <- referents %>%
   filter(referent %in% c("mom", "baby", "train", "dinosaur", "zucchini",
                           "cauliflower", "windchime"))
@@ -239,78 +250,87 @@ ggplot(referents, aes(x = rank, y = freq)) +
 
 ```
 
-Figure 1 shows the frequency distribution of the `r nrow(referents)` individual referents in this corpus across all recordings. As with many other frequency distributions in language, referential frequencies were approximately Zipfian, appearing approximately linear on a log-log scale [@piantadosi2014]. These frequency estimates were used to test the first key prediction of the race model of communcation: Labels for referents that are easier to retrieve from memory are more likely to be produced in speech.
+Figure \ref{fig:freq-fig} shows the frequency distribution of the `r nrow(referents)` individual referents in this corpus across all recordings. As with many other frequency distributions in language, referential frequencies were approximately Zipfian, appearing approximately linear on a log-log scale [@piantadosi2014]. These frequency estimates were used to test the first key prediction of the race model of communcation: Labels for referents that are easier to retrieve from memory are more likely to be produced in speech.
 
-## Testing the Race Model
+## Predictions 1 and 2: The effects of frequency
 
+```{r tradeoff_estimate, cache = T}
+model_data <-  coded_responses %>%
+  filter(ref_predicted == "1", person == "child")
 
-Figure 1 shows the distribution of 
-
-primary independent variable in the predictions made by the race model of reference is 
-
-
-All artwork must be very dark for purposes of reproduction and should
-not be hand drawn. Number figures sequentially, placing the figure
-number and caption, in 10 point, after the figure with one line space
-above the caption and one line space below it. If necessary, leave extra white space at
-the bottom of the page to avoid splitting the figure and figure
-caption. You may float figures to the top or bottom of a column, or
-set wide figures across both columns.
-
-## Tables
-
-Number tables consecutively; place the table number and title (in
-10 point) above the table with one line space above the caption and
-one line space below it, as in Table 1. You may float
-tables to the top or bottom of a column, set wide tables across both
-columns.
-
-You can use the xtable function in the xtable package.
-
-```{r xtable, results="asis"}
-n <- 100
-x <- rnorm(n)
-y <- 2*x + rnorm(n)
-out <- lm(y ~ x)
-
-tab1 <- xtable::xtable(summary(out)$coef, digits=c(0, 2, 2, 1, 2), 
-                      caption = "This table prints across one column.")
-
-print(tab1, type="latex", comment = F, table.placement = "H")
+plotting_data <- model_data %>%
+  group_by(person, age, subj, freq_cut, modality) %>%
+  summarise(n = n()) %>%
+  mutate(prob = n/sum(n)) %>%
+  group_by(person, age, modality, freq_cut) %>%
+  tidyboot_mean(prob, na.rm = T) %>%
+  ungroup() %>% 
+  filter(modality != "both") %>%
+  mutate(age = paste0(age, " months")) %>%
+  complete(age, modality, person, freq_cut, 
+           fill = list(person = "child", mean = 0, ci_upper = 0, ci_lower = 0))
 ```
 
-## Frequency of use
+```{r tradeoff-plot, fig.env = "figure*", fig.pos = "h", fig.width=5.5, fig.height=3.5, fig.align = "center", set.cap.width=T, num.cols.cap=2, fig.cap = "Speech-gesture tradeoff"}
+ggplot(plotting_data, aes(x = freq_cut, y = mean, color = modality,
+                          label = modality)) +
+  geom_line()+
+  facet_wrap( ~ age) + 
+  geom_pointrange(aes(ymax = ci_upper, ymin = ci_lower), 
+                 position = position_dodge(.5)) + 
+  scale_color_brewer(palette = "Set1") +
+  geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=.7)) +
+  scale_x_continuous(limits = c(.5, 5.7),
+                     breaks = seq(1, 4),
+                     name = "Frequency Quartile") +
+  ylab("Production Probability") + 
+  theme(legend.position = "none")
 
-
-```{r 2-col-image, fig.env = "figure*", fig.pos = "h", fig.width=4, fig.height=2, fig.align = "center", set.cap.width=T, num.cols.cap=2, fig.cap = "This image spans both columns. And the caption text is limited to 0.8 of the width of the document."}
-img <- png::readPNG("figs/walrus.png")
-grid::grid.raster(img)
 ```
 
-## One-column images
+```{r tradeoff_model, cache = T}
+tidy_table <- function(mermod) {
+  tidy(mermod) %>%
+    filter(group == "fixed") %>%
+    select(-group)
+}
 
-Single column is the default option, but if you want set it explicitly, set `fig.env` to `figure`. Notice that the `num.cols` option for the caption width is set to `1`.
 
-```{r image, fig.env = "figure", fig.pos = "H", fig.align='center', fig.width=2, fig.height=2, set.cap.width=T, num.cols.cap=1, fig.cap = "One column image."}
-img <- png::readPNG("figs/lab_logo_stanford.png")
-grid::grid.raster(img)
+tradeoff_model <- glmer(cbind(modality != "gesture", modality== "gesture") ~ 
+                          log(freq) * scale(age) + (scale(age)|subj),
+                        family = "binomial", data = model_data)
 ```
 
+```{r model-table, results="asis", tab.env = "table", cache = T}
+model_table <- tidy_table(tradeoff_model) %>%
+  mutate(term = c("Intercept", "log frequency", "age",
+                  "log frequency * age")) %>%
+    xtable(caption = "Speech gesture tradeoff lmer")
 
-## R Plots
-
-You can use R chunks directly to plot graphs. And you can use latex floats in the
-fig.pos chunk option to have more control over the location of your plot on the page. For more information on latex placement specifiers see **[here](https://en.wikibooks.org/wiki/LaTeX/Floats,_Figures_and_Captions)**
-
-```{r plot, fig.env="figure", fig.pos = "H", fig.align = "center", fig.width=2, fig.height=2, fig.cap = "R plot" }
-x <- 0:100
-y <- 2 * (x + rnorm(length(x), sd = 3) + 3)
-
-ggplot2::ggplot(data = data.frame(x, y), 
-       aes(x = x, y = y)) + 
-  geom_point() + 
-  geom_smooth(method = "lm")
+print(model_table, type = "latex", comment = F, table.placement = "tb",
+      include.rownames = FALSE)
 ```
+
+```{r sub_model, cache = T, eval = F}
+sub_data <- model_data %>%
+  group_by(freq, subj, age, referent, modality) %>%
+  summarise(n = n()) %>%
+  spread(modality, n) %>%
+  filter(!is.na(gesture) & (!is.na(speech) | !is.na(both))) %>%
+  mutate(speech = max(speech + both, speech, both, na.rm = T)) %>%
+  select(-both)
+
+sub_model <- glmer(cbind(speech, gesture) ~ log(freq) * scale(age) +
+                     (scale(age)|subj), family = "binomial", data = sub_data)
+
+tidy_table(sub_model)
+````
+
+Figure \ref{fig:tradeoff-plot} shows the distribution of speech/gesture. Table \ref{tab:model-table} shows the results of a mixed effects model. All of the effects remained significant even after only referents used in both modalities in the same 90 minutes session were included.
+
+## Prediction 3: Recent referents get a boost
+
+Bag of words model, probability under poisson, etc.
 
 # Discussion
 
