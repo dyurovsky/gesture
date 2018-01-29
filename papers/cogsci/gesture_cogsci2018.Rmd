@@ -179,11 +179,24 @@ all_reliability<-reliability_data %>%
 presentness <- coded_responses %>%
   mutate(ref_predicted = as.numeric(ref_predicted))
 
+present_lm <- glmer(ref_predicted ~ scale(age) * person + (person|subj), 
+       family = "binomial", 
+       data = presentness)
+ 
+ presentness_age<-presentness %>%
+   filter(is.na(ref_predicted)==FALSE) %>%
+   group_by(age) %>%
+   summarise(mean=(sum(ref_predicted)/n()))
+ 
+ presentness_person<-presentness %>%
+   group_by(person) %>%
+   summarise(mean=sum(ref_predicted)/n()) 
 ```
 
-Although we coded for concrete referents that had the potential to be produced either in speech or in gesture, we found that these referents were not always physically present in the environment. If a referent was not present, it could not be referred to in the gestural modality--potentially biasing our analyses. After coding all referents from the transcripts, the primary coder judged whether each was likely to be present in the scene according to a list of criteria described in the coding manual. Across the 60 transcripts, `r presentness %>% summarise(present = mean(ref_predicted)) %>% pull() %>% round(2) * 100`% of referents were judged to be present. Absent referents were included in estimates of input frequency, but excluded from analysis of production modality.
+Although we coded for concrete referents that had the potential to be produced either in speech or in gesture, we found that these referents were not always physically present in the environment. If a referent was not present, it could not be referred to in the gestural modality--potentially biasing our analyses. After coding all referents from the transcripts, the primary coder judged whether each was likely to be present in the scene according to a list of criteria described in the coding manual. Across the 60 transcripts, `r presentness %>% summarise(present = mean(ref_predicted)) %>% pull() %>% round(2) * 100`% of referents were judged to be present. There was a nonsignificant effect of child's age (p < `r round(coef(summary(present_lm))[2,4],3)`) and whether the subject was the parent or child (p < `r round(coef(summary(present_lm))[3,4],2)`), but there was a significant interaction effect of age and whether the subject was the child or parent. With an increase in age, Absent referents were included in estimates of input frequency, but excluded from analysis of production modality.
 
 Reliability for referent presentness was caluclated for 5% of the data by comparison of judgments created by the primary coder and observations of video data. The reliability was acceptable for child-produced referents (Cohen's $\kappa$= `r round(child_reliability$value,2)`), as well as for all referents in the dataset (Cohen's $\kappa$=`r round(all_reliability$value,2)`). 
+
 
 # Results
 
