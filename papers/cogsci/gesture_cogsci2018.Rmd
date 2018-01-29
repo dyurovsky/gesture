@@ -120,7 +120,8 @@ coding_table <- read_csv("figs/coding_table.csv") %>%
   remove_rownames() %>%
   select(-referent) %>%
   xtable(caption = "An example of the output of data processing",
-         align = "llp{2.5cm}lll")
+         align = "llp{2.5cm}lll",
+         label = "tab:coding-table")
 
 print(coding_table, type = "latex", comment = F, table.placement = "tb",
       include.rownames = FALSE,
@@ -272,7 +273,8 @@ tradeoff_model <- glmer(cbind(modality != "gesture", modality== "gesture") ~
 model_table <- tidy_table(tradeoff_model) %>%
   mutate(term = c("Intercept", "log frequency", "age",
                   "log frequency * age")) %>%
-    xtable(caption = "Speech gesture tradeoff lmer")
+    xtable(caption = "Speech gesture tradeoff lmer",
+           label = "tab:model-stats")
 
 print(model_table, type = "latex", comment = F, table.placement = "tb",
       include.rownames = FALSE)
