@@ -121,11 +121,11 @@ coding_table <- read_csv("figs/coding_table.csv") %>%
   remove_rownames() %>%
   select(-referent) %>%
   xtable(caption = "An example of the output of data processing",
-         align = "llp{3cm}lll")
+         align = "llp{2.5cm}lll")
 
 print(coding_table, type = "latex", comment = F, table.placement = "tb",
       include.rownames = FALSE,
-      size="\\fontsize{9pt}{9pt}\\selectfont")
+      size="\\fontsize{8pt}{8pt}\\selectfont")
 ```
 
 
@@ -292,7 +292,17 @@ ggplot(plotting_data, aes(x = freq_cut, y = mean, color = modality,
 tidy_table <- function(mermod) {
   tidy(mermod) %>%
     filter(group == "fixed") %>%
-    select(-group)
+    select(-group) %>%
+    mutate(p.value = if_else(p.value < .001, "<.001", 
+                             as.character(p.value))) %>%
+    mutate(estimate = round(estimate, digits = 2),
+           std.error = round(std.error, digits = 2),
+           estimate = paste0(estimate, " (", std.error, ")"),
+           estimate = sub("0.", ".", estimate)) %>%
+    select(-std.error) %>%
+    rename(`Z-value` = statistic,
+           `p-value` = p.value)
+
 }
 
 
