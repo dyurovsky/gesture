@@ -31,6 +31,7 @@ library(tidyverse)
 library(png)
 library(grid)
 library(xtable)
+#options(xtable.floating= FALSE)
 library(feather)
 library(tidyverse)
 library(irr)
@@ -44,21 +45,21 @@ theme_set(theme_classic(base_size = 10))
 
 # Introduction
 
-Children learn a striking amount of language in their first few years of life--thousands of sounds, words, grammatical categories, and the combinatoric properties that allow them to be combined to produce meaningful utterances [@clark2009]. They also come to understand what all of this language *is for*: communicating with other people [@zipf1949]. Further, there is good reason to think that these two problems are deeply interwined. The language that children hear is rarely a running commentary on the world around them--when a child's parents return home work, they are much more likely to say "whatcha been doing all day?" than "I am opening the door" [@gleitman1990]. Understanding that their parent is not trying to tell them about the door may go a long a way to learning what the words they are hearing mean.
+Children learn a striking amount of language in their first few years of life--thousands of sounds, words, grammatical categories, and the combinatoric properties that allow them to be combined to produce meaningful utterances [@clark2009]. They also come to understand what all of this language *is for*: communicating with other people [@zipf1949]. Furhter, there is good reason to think that these two problems are deeply interwined. The language that children hear is rarely a running commentary on the world around them--when a child's parents return home work, they are much more likely to say "whatcha been doing all day?" than "I am opening the door" [@gleitman1990]. Understanding that their parent is not trying to tell them about the door may go a long a way to learning what the words they are hearing mean.
 
-The understanding that speakers productions are intended to communicate information is at the core of the kinds of inferences that adults routinely make when processing language. These pragmatic inferences, for instance, are the reason that hearing a speaker say that they ate "some of the cookies," causes us to think that some cookies still remain on the plate [@grice1969]. Children's ability to perform these kinds of complex inferences appears relatively late in language development [@noveck2001]. However, a growing body of empirical evidence shows that a basic undertanding of the communicative purpose of language is already present in the first year of life [@tomasello2000]. For instance, children appear to understand that speakers communicate information to other adults, even if they themselves do not understand the words being said [@vouloumanos2012; @vouloumanos2014]. But is this understanding of communicative goals present in children's *language production* as well?
+The understanding that speakers productions are intended to communicate information is at the core of the kinds of inferences that adults routinely make when processing language. These pragmatic inferences, for instance, are the reason that hearing a speaker say that they ate "some of the cookies," causes us to think that some cookies still remain on the plate [@grice1969]. Children's ability perform these kinds of complex inferences appears relatively late in language development [@noveck2001]. However, a growing body of empirical evidence shows that a basic undertanding of the communicative purpose of language is already present in the first year of life [@tomasello2000]. For instance, children appear to understand that speakers communicate information to other adults, even if they themselves do not understand the words being said [@vouloumanos2012; @vouloumanos2014]. But is this understanding of communicative goals present in children's *language production* as well?
 
 The core of extended communicative interactions is taking turns: participants each contribute to the discourse, but only one at a time [@sacks1974]. Turn taking is not only universal among both modern and indigenous cultures, the length of time between turns is highly stereotyped, and predicted by the same factors across cultures [@stivers2009]. Evidence from both early observational studies and more recent experiments suggests that tracking of turn boundaries emerges early in infancy--perhaps in the course of scripted interactions like patty cake [@bruner1983; @casillas2017].
 
 The regularity of these turns makes communication inherently time constrained: If you stop talking for too long, you lose your turn. Adults are sensitive to this time pressure, for instance producing filled pauses like "um" when they are having difficulty retrieving the words they want to produce in order to signal their desire to hold onto their turn [@clark2002]. If retrieval is still unsuccessful, lingusitically-proficient adults can opt for an alternative word or even a description that gives their interlocutor enough information to help retrieve the word for them [@clark1989]. Children still learning their native language, for whom such strategies are unavailable, might resort to an alternative mode of communcation: pointing. 
 
-Children produce deictic gestures early in infancy, and appear to understand that these gestures both direct attention and communicate intentions by the time they are 12-months-old [@liszkowski2007; @tomasello2007]. Around the same time, infants begin producing their first spoken words [@bloom2000]. Over the next few years, infants will produce many more words, and need to rely less on deictic gesture to communicate. However, while children master some words early, others which are less frequent may remain difficult to retrieve and produce. If children, like adults, are sensitive to the time pressures of communication, then then they may use gesture even for *known* words if these words are slow to come.
+Children produce deictic gestures early in infancy, and appear to understand that these gestures both direct attention and communicate intentions by the time they are 12-months-old [@liszkowski2007; @tomasello2007]. Around the same time, infants begin producing their first spoken words [@bloom2000]. Over the next few years, infants will produce many more words, and need to rely less on deictic gesture to communicate. However, while children master some words early, others which are less frequent may remain difficulty to retrieve and produce. If children, like adults, are sensitive to the time pressures of communication, then then they may use gesture even for *known* words if these words are slow to come.
 
 ## Communication as a race between modalities
 
 When children wish to share their interest in an object with a caregiver, they have two modalities available to them. One possibility is to use spoken language, producing the canonical label for it (e.g. "ball"). Alternatively, they can use a deictic gesture, e.g. a point, to draw the caregiver's attention to it. When should children use each of these modalities? 
 
-If the child does not know that the object is called "ball," they have no choice but to point. However, if they do know its label, time pressure on communication produces a race between modalities. If the child can recall the word quickly, they should prefer to use language--as speech is less effortful than pointing [@zipf1949]. However, if the recall process of recalling and producing the word is progressing too slowly, the child risks losing their conversational turn and should instead point. 
+If the child does not know that the object is called "ball," they have no choice but to point. However, if they do know it's label, time pressure on communication produces a race between modalities. If the child can recall the word quickly, they should prefer to use language--as speech is less effortful than pointing [@zipf1949]. However, if the recall process of recalling and producing the word is progressing too slowly, the child risks losing their conversational turn and should instead point. 
 
 ```{r lba-mod, fig.env = "figure", fig.align='center', set.cap.width=T, num.cols.cap=1, fig.cap = "Referential communication as a race between speech and gesture. The drift rate of pointing should be independent of referent, but speech should vary with properties of words, e.g. frequency"}
 img <- png::readPNG("figs/lba_mod_simple.png")
@@ -109,7 +110,7 @@ The data analyzed here are transcriptions of recordings parent-child interaction
 
 ## Participants
 
-These children's data was drawn from the larger Language Development Project dataset pseudo-randomly to preserve the socio-economic, racial, and gender diversity representative of the broader Chicago community. Of the `r length(subjs)` children, `r demos %>% summarise(female = sum(sex == "F"))` were girls, `r demos %>% summarise(black = sum(race == "BL"))` were Black and `r demos %>% summarise(mixed = sum(race == "2+"))` were Mixed-Race. Familes spanned a broad range of incomes, with `r demos %>% filter(income == min(income)) %>% nrow()` families earning `r demos %>% filter(income == min(income)) %>% pull(income_factor) %>% first()` and `r demos %>% filter(income == max(income)) %>% nrow()` family earning `r demos %>% filter(income == max(income)) %>% pull(income_factor) %>% first()`. The median family income was `r demos %>% filter(income == median(income)) %>% pull(income_factor) %>% first()`. 
+These children's data was drawn from the larger Language Development Project dataset pseudo-randomly to preserve the socio-economic, racial, and gender diversity representative of the broader Chicago community. Of the `r length(subjs)` children, `r demos %>% summarise(female = sum(sex == "F"))` were girls, `r demos %>% summarise(black = sum(race == "BL"))` were Black and `r demos %>% summarise(mixed = sum(race == "2+"))` were Mixed-Race. Familes spanned a broad range of incomes, with `r demos %>% filter(income == min(income)) %>% nrow()` families earning `r demos %>% filter(income == min(income)) %>% pull(income_factor) %>% first()` and `r demos %>% filter(income == max(income)) %>% nrow()` families earning `r demos %>% filter(income == max(income)) %>% pull(income_factor) %>% first()`. The median family income was `r demos %>% filter(income == median(income)) %>% pull(income_factor) %>% first()`. 
 
 ## Data Processing
 
@@ -156,6 +157,39 @@ irr_data <- full_join(nicole_responses, maddie_responses,
 kappa <- irr_data %>%
   select(referent.x, referent.y) %>%
   kappa2()
+# 
+# interrater_data<-maddie_responses %>%
+#   full_join(nicole_responses, by = c("time", "subj", "age")) %>%
+#   arrange(time) %>%
+#   select(coder.x, coder.y, referent.x, referent.y, modality.x, modality.y, time) %>%
+#   mutate(coder.x="Maddie", coder.y="Nicole") %>%
+#   mutate(uniq = rownames(.)) %>%
+#   select(-time)
+# 
+# long_interrater <- rbind(interrater_data %>% select(coder=coder.x, referent=referent.x, modality=modality.x, uniq),
+#               interrater_data %>% select(coder=coder.y, referent=referent.y, modality=modality.y, uniq))
+# 
+# long_interrater<-long_interrater %>%
+#   select(coder, uniq, referent, modality) %>%
+#   arrange(uniq) %>%
+#   gather(variable, value, -(coder:uniq)) %>%
+#   unite(temp, uniq, variable) %>%
+#   spread(temp, value) %>%
+#   select(-coder) %>%
+#   as.matrix()
+# 
+# irr_coef<-kripp.alpha(long_interrater, method=c("nominal"))
+# 
+# pres_reliability<-read_feather("../../feathers/pres_reliability.feather")
+# 
+# child_reliability <- pres_reliability %>%
+#   filter(person == "child") %>%
+#   select(ref_pres, ref_predicted) %>%
+#   kappa2()
+# 
+# all_reliability<-pres_reliability %>%
+#   select(ref_pres, ref_predicted) %>%
+#   kappa2()
 
 ```
 
@@ -164,25 +198,34 @@ To assess the reliability of referent coding, 25% of the transcripts were coded 
 ### Presence of referents
 
 ```{r presentness_data, cache = T}
-reliability_data<-read_feather("../../feathers/pres_reliability.feather")
- 
-child_reliability <- reliability_data %>%
-   filter(person == "child") %>%
-   select(ref_pres, ref_predicted) %>%
-   kappa2()
- 
-all_reliability<-reliability_data %>%
-   select(ref_pres, ref_predicted) %>%
-   kappa2()
-
 presentness <- coded_responses %>%
   mutate(ref_predicted = as.numeric(ref_predicted))
 
+child_reliability <- NULL
+call_reliability <-  NULL
+
+# present_lm <- glmer(ref_predicted ~ scale(age) * person + (person|subj), 
+#       family = "binomial", 
+#       data = presentness)
+# # 
+# presentness_age<-presentness %>%
+#   filter(is.na(ref_predicted)==FALSE) %>%
+#   group_by(age) %>%
+#   summarise(mean=(sum(ref_predicted)/n()))
+# 
+# presentness_person<-presentness %>%
+#   group_by(person) %>%
+#   summarise(mean=sum(ref_predicted)/n()) 
 ```
 
 Although we coded for concrete referents that had the potential to be produced either in speech or in gesture, we found that these referents were not always physically present in the environment. If a referent was not present, it could not be referred to in the gestural modality--potentially biasing our analyses. After coding all referents from the transcripts, the primary coder judged whether each was likely to be present in the scene according to a list of criteria described in the coding manual. Across the 60 transcripts, `r presentness %>% summarise(present = mean(ref_predicted)) %>% pull() %>% round(2) * 100`% of referents were judged to be present. Absent referents were included in estimates of input frequency, but excluded from analysis of production modality.
 
-Reliability for referent presentness was caluclated for 5% of the data by comparison of judgments created by the primary coder and observations of video data. The reliability was acceptable for child-produced referents (Cohen's $\kappa$= `r round(child_reliability$value,2)`), as well as for all referents in the dataset (Cohen's $\kappa$=`r round(all_reliability$value,2)`). 
+
+<!-- Reliability for referent presentness was caluclated through a comparison of predicted and manual codes. Predicted presentness calculations were created using transcripts according to the guidelines found in [CODING MANUAL??]. Referents were predicted to be present in the environment if they were gestured to recently, if they were labeled by a subject, or if they were in a picture book. Manual presentness calculations were made for 5% of the data by watching the video recordings of the 90-minute observational sessions and marking whether the object being discussed was physically present. For child-produced referents, the Cohen's Kappa reliability of presentness predictions was $\kappa$= `r #round(child_reliability$value,2)`, and for combined parent- and child-produced language, the reliability was $\kappa$=`r # round(all_reliability$value,2)`.  -->
+
+<!-- A mixed-effects model  -->
+
+<!-- round(mean(presentness$ref_predicted),2)*100`% of referents were present during the discourse. The predicted number of referents present ranged from `r #round(min(presentness_age$mean),2)*100`% present at age=`r #min(presentness_age$age)`mos to `r #round(max(presentness_age$mean),2)*100`% present at age=`r #max(presentness_age$age)`mos. Referent presentness did not appear to vary based on whether it was produced by the parent or child.  -->
 
 # Results
 
