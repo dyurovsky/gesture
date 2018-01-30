@@ -208,7 +208,7 @@ To estimate the input frequency of each referent in the corpus, we summed its fr
 
 ```{r freq-fig,  fig.width=3.5, fig.height=2, set.cap.width=T, num.cols.cap=1, fig.cap = "Referents varied widely in their frequency of use, appearing approximately Zipfian. We predict that referents frequent in the input--like baby--should be be more likely to emerge in speech than infrequent referents like cauliflower", cache = T}
 label_refs <- referents %>%
-  filter(referent %in% c("mom", "baby", "train", "dinosaur", "zucchini",
+  filter(referent %in% c("mom", "baby", "train", "nose", "dinosaur",
                           "cauliflower", "windchime"))
 
 ggplot(referents, aes(x = rank, y = freq)) + 
@@ -224,6 +224,8 @@ ggplot(referents, aes(x = rank, y = freq)) +
 Figure \ref{fig:freq-fig} shows the frequency distribution of the `r nrow(referents)` individual referents in this corpus across all recordings. As with many other frequency distributions in language, referential frequencies were approximately Zipfian, appearing approximately linear on a log-log scale [@piantadosi2014]. These frequency estimates were used to test the first key prediction of the race model of communcation: Labels for referents that are easier to retrieve from memory are more likely to be produced in speech.
 
 ## Predictions 1 and 2: The effects of frequency
+
+If the modality that children use for referential communication is the result of a race between speech and gesture, factors that facilitate lexical retrieval and word production should make speech win the race more often. As more frequent words lead to faster retrieval in adults, we hypothesized that frequency should have the same effect for young children. Consequently, when children want to refer to things that are talked about more often, they should be more likely to use speech (Prediction 1). Further, since exposure to language increases over development, older children should be relatively more likely than younger children to use speech for the same referent. (Prediction 2).
 
 ```{r tradeoff_estimate, cache = T}
 model_data <-  coded_responses %>%
@@ -242,7 +244,8 @@ plotting_data <- model_data %>%
            fill = list(person = "child", mean = 0, ci_upper = 0, ci_lower = 0))
 ```
 
-```{r tradeoff-plot, fig.env = "figure*", fig.pos = "h", fig.width=5.5, fig.height=3.5, fig.align = "center", set.cap.width=T, num.cols.cap=2, fig.cap = "Speech-gesture tradeoff"}
+
+```{r tradeoff-plot, fig.env = "figure*", fig.pos = "h", fig.width=5.5, fig.height=3.5, fig.align = "center", set.cap.width=T, num.cols.cap=2, fig.cap = "Probability of referential events being expressed in speech (blue) vs. gesture (red) as a function of frequency and children's age. For ease of visualization, referents were divided into four quartiles (1-most frequent). Points show group averaed proportions, error bars show 95\\% confidence intervals computed by non-parametric bootrstrap"}
 ggplot(plotting_data, aes(x = freq_cut, y = mean, color = modality,
                           label = modality)) +
   geom_line()+
@@ -256,8 +259,10 @@ ggplot(plotting_data, aes(x = freq_cut, y = mean, color = modality,
                      name = "Frequency Quartile") +
   ylab("Production Probability") + 
   theme(legend.position = "none")
-
 ```
+
+
+Figure \ref{fig:tradeoff-plot} shows how the probability of speech and gesture changed with referents' frequency and over development. We performed all statistical analyses on conintuous frequency data, but to facilitate visualization here divide referents into four quartiles from most frequent (1) to least frequent (4). Children were relatively more likely to use speech for more frequent referents, and more likely to use speech over development. These data appear consistent with both of the first two predictions of our race model for communication.
 
 ```{r tradeoff_model, cache = T}
 tidy_table <- function(mermod) {
@@ -286,8 +291,8 @@ tradeoff_model <- glmer(cbind(modality != "gesture", modality== "gesture") ~
 model_table <- tidy_table(tradeoff_model) %>%
   mutate(term = c("Intercept", "log frequency", "age",
                   "log frequency * age")) %>%
-    xtable(caption = "Speech gesture tradeoff lmer",
-           label = "tab:model-stats")
+    xtable(caption = "Coefficient estimates for a mixed-effects logistic regression predicting probability of prodution in speech for a referential event. The model was specified as $speech \\sim log(freq) * scale(age) + (scale(age)|subj)$",
+           label = "tab:model-table")
 
 print(model_table, type = "latex", comment = F, table.placement = "tb",
       include.rownames = FALSE)
@@ -308,7 +313,9 @@ sub_model <- glmer(cbind(speech, gesture) ~ log(freq) * scale(age) +
 tidy_table(sub_model)
 ````
 
-Figure \ref{fig:tradeoff-plot} shows the distribution of speech/gesture. Table \ref{tab:model-table} shows the results of a mixed effects model. All of the effects remained significant even after only referents used in both modalities in the same 90 minutes session were included.
+To test these predictions statistically, we used as our dependent variable modality of production for each individual referential effent by every child at all six ages. This binary outcome--speech or gesture--was predicted with a mixed effects logistic regression with fixed effects of frequency, age, and their interaction, and a random slope of frequency for each child. As the effect of frequency on memory and processing tends to be linear in log scale, frequency was log-transformed. In addition, age was scaled to improve model estimation. Both main effects were highly reliable predictors, as was the interaction between them (Table \ref{tab:model-table}). Children were significantly more likely to use speech to refer to more frequent referents, more likley to use speech as they got older, and the effect of frequency decreased over development--presumably because the easiest to retrieve referents already win the race even for younger children. 
+Because these analyses were performed on all references for all children, some referents were produced only one or a few times, and thus only in a single modality. When this modality was gesture, we cannot whether children knew the spoken labels for these referents, and thus whether there was a race at all. To ensure that our results were not driven by words that children did not know, we subset the data down to only referents that children produced in *both* speech and gesture in a single session. All predictors remained highly significant ($p < .001$) in the same direction, and remained almost identical numerically except for age, which increased. 
+
 
 ## Prediction 3: Recent referents get a boost
 
