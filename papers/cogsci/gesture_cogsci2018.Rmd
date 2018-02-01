@@ -12,8 +12,7 @@ author-information: >
 
 
 abstract: 
-    "We test this prediction in a corpus of videos of parent-child interaction in the home recorded longitudinally from 14- to 34- months. naturalistic parent-child o"
-    
+    "Dyadic interaction is marked by alternation, with partners taking turns speaking and listening. Consequently, language production happens under time pressure; speakers who cannot get their message out quickly enough lose their turn. When adults have difficulty retrieving the words they want to say, they can choose less felicitious alternatives. Children just beginning to learn language, however, may use another strategy\\: Pointing. If young children\\'s production systems reflect a sensitivity to communicative pressure, they should use deictic gesture to refer when they cannot retrieve a lexical label quickly enough. We confirm this prediction in a longitudinal corpus of naturalistic parent-child interactions, showing that the frequency of a word in children's input, and the recency with which a word has been heard, both predict the probability of spoken reference, *even for known words.*"    
 keywords:
     "communication; language acquisition; gesture; corpus analysis"
     
@@ -46,7 +45,7 @@ theme_set(theme_classic(base_size = 10))
 
 Children learn a striking amount of language in their first few years of life--thousands of sounds, words, grammatical categories, and the combinatoric properties that allow them to be combined to produce meaningful utterances [@clark2009]. They also come to understand what all of this language *is for*: communicating with other people [@zipf1949]. There is good reason to think that these two problems are deeply intertwined. The language that children hear is rarely a running commentary on the world around them--when a child's parents return home from work, they are much more likely to say "whatcha been doing all day?" than "I am opening the door" [@gleitman1990]. Understanding that their parent is not trying to tell them about the door may go a long way to learning what the words they are hearing mean.
 
-The understanding that speakers productions are intended to communicate information is at the core of the kinds of inferences that adults routinely make when processing language. These pragmatic inferences, for instance, are the reason that hearing a speaker say that they ate "some of the cookies," causes us to think that some cookies still remain on the plate [@grice1969]. Children's ability to perform these kinds of complex inferences appears relatively late in language development [@noveck2001]. However, a growing body of empirical evidence shows that a basic understanding of the communicative purpose of language is already present in the first year of life [@tomasello2000]. For instance, children appear to understand that speakers communicate information to other adults, even if they themselves do not understand the words being said [@vouloumanos2012; @vouloumanos2014]. But is this understanding of communicative goals present in children's *language production* as well?
+The understanding that speakers productions are intended to communicate information is at the core of the kinds of inferences that adults routinely make when processing language. These pragmatic inferences, for instance, are the reason that hearing a speaker say that they ate "some of the cookies," causes us to think that some cookies still remain on the plate [@grice1969]. Children's ability to perform these kinds of complex inferences appears relatively late in language development [@noveck2001]. However, a growing body of empirical evidence shows that a basic understanding of the communicative purpose of language is already present in the first year of life [@tomasello2000]. For instance, children appear to understand that speakers communicate information to other adults, even if they themselves do not understand the words being said [@vouloumanos2012; @vouloumanos2014]. But do children also show this understanding of goals in their production of communicative acts?
 
 The core of extended communicative interactions is taking turns: participants each contribute to the discourse, but only one at a time [@sacks1974]. Turn taking is not only universal among both modern and indigenous cultures, the length of time between turns is highly stereotyped, and predicted by the same factors across cultures [@stivers2009]. Evidence from both early observational studies and more recent experiments suggests that tracking of turn boundaries emerges early in infancy--perhaps in the course of scripted interactions like patty cake [@bruner1983; @casillas2017].
 
@@ -193,7 +192,7 @@ present_lm <- glmer(ref_predicted ~ scale(age) * person + (person|subj),
    summarise(mean=sum(ref_predicted)/n()) 
 ```
 
-Although we coded for concrete referents that had the potential to be produced either in speech or in gesture, we found that these referents were not always physically present in the environment. If a referent was not present, it could not be referred to in the gestural modality--potentially biasing our analyses. After coding all referents from the transcripts, the primary coder judged whether each was likely to be present in the scene according to a list of criteria described in the coding manual. Across the 60 transcripts, `r presentness %>% summarise(present = mean(ref_predicted)) %>% pull() %>% round(2) * 100`% of referents were judged to be present. There was a nonsignificant effect of child's age (p < `r round(coef(summary(present_lm))[2,4],3)`) and whether the subject was the parent or child (p < `r round(coef(summary(present_lm))[3,4],2)`), but there was a significant interaction effect of age and whether the subject was the child or parent. With an increase in age, Absent referents were included in estimates of input frequency, but excluded from analysis of production modality.
+Although we coded for concrete referents that had the potential to be produced either in speech or in gesture, we found that these referents were not always physically present in the environment. If a referent was not present, it could be more difficult to gesture to--potentially biasing our analyses [although, c.f. @butcher1991]. After coding all referents from the transcripts, the primary coder judged whether each was likely to be present in the scene according to a list of criteria described in the coding manual. Across the 60 transcripts, `r presentness %>% summarise(present = mean(ref_predicted)) %>% pull() %>% round(2) * 100`% of referents were judged to be present. There was a nonsignificant effect of child's age (p < `r round(coef(summary(present_lm))[2,4],3)`) and whether the subject was the parent or child (p < `r round(coef(summary(present_lm))[3,4],2)`), but there was a significant interaction effect of age and whether the subject was the child or parent. With an increase in age, Absent referents were included in estimates of input frequency, but excluded from analysis of production modality.
 
 Reliability for referent presentness was calculated for 5% of the data by comparison of judgments created by the primary coder and observations of video data. The reliability was acceptable for child-produced referents (Cohen's $\kappa$= `r round(child_reliability$value,2)`), as well as for all referents in the dataset (Cohen's $\kappa$=`r round(all_reliability$value,2)`). 
 
@@ -225,7 +224,7 @@ Figure \ref{fig:freq-fig} shows the frequency distribution of the `r nrow(refere
 
 ## Predictions 1 and 2: The effects of frequency
 
-If the modality that children use for referential communication is the result of a race between speech and gesture, factors that facilitate lexical retrieval and word production should make speech win the race more often. As more frequent words lead to faster retrieval in adults, we hypothesized that frequency should have the same effect for young children. Consequently, when children want to refer to things that are talked about more often, they should be more likely to use speech (Prediction 1). Further, since exposure to language increases over development, older children should be relatively more likely than younger children to use speech for the same referent. (Prediction 2).
+If the modality that children use for referential communication is the result of a race between speech and gesture, factors that facilitate lexical retrieval and word production should make speech win the race more often. As more frequent words lead to faster retrieval in adults, we hypothesized that frequency should have the same effect for young children. Consequently, when children want to refer to things that are talked about more often, they should be more likely to use speech (Prediction 1). Further, since exposure to language increases over development, older children should be relatively more likely than younger children to use speech for referents that are heard equally often. (Prediction 2).
 
 ```{r tradeoff_estimate, cache = T}
 model_data <-  coded_responses %>%
@@ -284,7 +283,7 @@ tidy_table <- function(mermod) {
 
 
 tradeoff_model <- glmer(cbind(modality != "gesture", modality== "gesture") ~ 
-                          log(freq) * scale(age) + (scale(age)|subj),
+                          log(freq) * scale(age) + (scale(age)|subj) + (1|referent),
                         family = "binomial", data = model_data)
 ```
 
@@ -292,7 +291,7 @@ tradeoff_model <- glmer(cbind(modality != "gesture", modality== "gesture") ~
 model_table <- tidy_table(tradeoff_model) %>%
   mutate(term = c("Intercept", "log frequency", "age",
                   "log frequency * age")) %>%
-    xtable(caption = "Coefficient estimates for a mixed-effects logistic regression predicting probability of prodution in speech for a referential event. The model was specified as \\texttt{speech $\\sim$ log(freq) * scale(age) + (scale(age)|subj)}",
+    xtable(caption = "Coefficient estimates for a mixed-effects logistic regression predicting probability of prodution in speech for a referential event. The model was specified as \\texttt{speech $\\sim$ log(freq) * scale(age) + (scale(age)|subj) + (1|referent)}",
            label = "tab:model-table")
 
 print(model_table, type = "latex", comment = F, table.placement = "tb",
@@ -309,28 +308,29 @@ sub_data <- model_data %>%
   select(-both)
 
 sub_model <- glmer(cbind(speech, gesture) ~ log(freq) * scale(age) +
-                     (scale(age)|subj), 
+                     (scale(age)|subj) + (1|referent), 
                    family = "binomial", 
+                   control = glmerControl(optimizer = "bobyqa"),
                    data = sub_data)
 
 tidy_table(sub_model)
 ````
 
-To test these predictions statistically, we used as our dependent variable modality of production for each individual referential event by every child at all six ages. This binary outcome--speech or gesture--was predicted with a mixed effects logistic regression with fixed effects of frequency, age, and their interaction, and a random slope of frequency for each child. As the effect of frequency on memory and processing tends to be linear in log scale, frequency was log-transformed. In addition, age was scaled to improve model estimation. Both main effects were highly reliable predictors, as was the interaction between them (Table \ref{tab:model-table}). Children were significantly more likely to use speech to refer to more frequent referents, more likely to use speech as they got older, and the effect of frequency decreased over development--presumably because the easiest to retrieve referents already win the race even for younger children. 
-Because these analyses were performed on all references for all children, some referents were produced only one or a few times, and thus only in a single modality. When this modality was gesture, we cannot know whether children knew the spoken labels for these referents, and thus whether there was a race at all. To ensure that our results were not driven by words that children did not know, we subset the data down to only referents that children produced in *both* speech and gesture in a single session. All predictors remained significant ($p < .001$) in the same direction, and numerically similar except for age, which increased. Even by this more conservative analysis, both predictions of the race model were confirmed: Children's are more likely to use speech for more frequent referents, and more likely to do so as they get older. Even for known words, the speed of lexical retrieval and production predict whether speech will win the race against gesture.
+To test these predictions statistically, we used as our dependent variable modality of production for each individual referential event by every child at all six ages. This binary outcome--speech or gesture--was predicted with a mixed effects logistic regression with fixed effects of frequency, age, and their interaction, and a random slope of frequency for each child and random intercept for each referent. As the effect of frequency on memory and processing tends to be linear in log scale, frequency was log-transformed. In addition, age was scaled to improve model estimation. Both main effects were highly reliable predictors, as was the interaction between them (Table \ref{tab:model-table}). Children were significantly more likely to use speech to refer to more frequent referents, more likely to use speech as they got older, and the effect of frequency decreased over development--presumably because the easiest to retrieve referents already win the race even for younger children. 
+Because these analyses were performed on all references for all children, some referents were produced only one or a few times, and thus only in a single modality. When this modality was gesture, we cannot know whether children knew the spoken labels for these referents, and thus whether there was a race at all. To ensure that our results were not driven by words that children did not know, we subset the data down to only referents that children produced in *both* speech and gesture in a single session. All predictors remained significant in the same direction, and numerically similar except for age, which decreased (as the most well-known referents--which were never produced in gesture--were excluded from analysis). Even by this more conservative analysis, both predictions of the race model were confirmed: Children's are more likely to use speech for more frequent referents, and more likely to do so as they get older. Even for known words, the speed of lexical retrieval and production predict whether speech will win the race against gesture.
 
 ## Prediction 3: Recent referents get a boost
 
-If children's referential communications are produced by a system that is senstiive to the time-pressures on communication, speech should emerge more often as labels become easier to retrieve and produce. The previous analyses confirm this relationship for one predictor of ease of retrieval: Lexical frequency. 
-However, these references do not occur in a vaccum: they are embedded in broader communicative discourses. A key feature of these discourses is that referential events come in bursts: If a something is referred to in one utterance, it is likely to be referred to again in the next utterance [@altmann2009].
+If children's referential communications are produced by a system that is sensitive to the time-pressures on communication, speech should emerge more often as labels become easier to retrieve and produce. The previous analyses confirm this relationship for one predictor of ease of retrieval: Lexical frequency. 
+However, these references do not occur in a vacuum: they are embedded in broader communicative discourses. A key feature of these discourses is that referential events come in bursts: If a something is referred to in one utterance, it is likely to be referred to again in the next utterance [@altmann2009].
 
-These topical bursts likely occur for functional reasons--once something interesting has entered the discourse, there is no reason to drop it right away. But they also have an important consequence for production. Although low-frequency words are harder to retrieve the first time, subsequent retrievals in the same discourse become easier--these words get a recency boost [@pickering2008]. If the drift rate for speech is a function of ease of retrieval, then it should be affected by these burts as well. Consequently, we predict that children should be relatively more likely to speech to refer to low-frequency referents within a discourse burst than if their reference is the first introduction of the low-frequency referent into the discourse.
+These topical bursts likely occur for functional reasons--once something interesting has entered the discourse, there is no reason to drop it right away. But they also have an important consequence for production. Although low-frequency words are harder to retrieve the first time, subsequent retrievals in the same discourse become easier--these words get a recency boost [@pickering2008]. If the drift rate for speech is a function of ease of retrieval, then it should be affected by these Bursts as well. Consequently, we predict that children should be relatively more likely to speech to refer to low-frequency referents within a discourse burst than if their reference is the first introduction of the low-frequency referent into the discourse.
 
 In order to test this prediction, we needed to operationalize the boundaries between these discourse bursts. When a referent appears for the first time in a transcript, it is easy to tag as new to the discourse. When it is immediately referred to again, it is also easy to determine that it is part of the same discourse burst. However, whenever the referent appears again after 5 minutes, it is less obvious whether this is a part of the previous discourse burst or a new one. To resolve this coding issue, we defined a simple bag of referents model for discourse. 
 
-Under this model, when a new referential event occurs, its target is drawn randomly from a all possible referents the target of each referential event is an independent draw from the set of all referents with probability proportional to its frequency [@altmann2009]. The recurrence time $(\tau)$ between two successive occurrences of the same referent this Poisson sampling process is described by an Exponential distribution: $\lambda e^{-\lambda \tau}$, where $(\lambda)$ is the proportion of all referential events for which this referent is the target. The expected recurrence time for a referent is just the reciprocal of its proportional frequency: If DOG occurrs 50 times in a discourse in which there are a total of 1000 referential events, it should on average occur every $\tau=20$ events.
+Under this model, when a new referential event occurs, its target is drawn randomly from a all possible referents the target of each referential event is an independent draw from the set of all referents with probability proportional to its frequency [@altmann2009]. The recurrence time $(\tau)$ between two successive occurrences of the same referent this Poisson sampling process is described by an Exponential distribution: $\lambda e^{-\lambda \tau}$, where $(\lambda)$ is the proportion of all referential events for which this referent is the target. The expected recurrence time for a referent is just the reciprocal of its proportional frequency: If DOG occurs 50 times in a discourse in which there are a total of 1000 referential events, it should on average occur every $\tau=20$ events.
 
-The bag of referents model then serves as a null model: Discourse bursts are very low probability events, as they consist of a run of short reccurrence times. We thus define the probability of an event being part of previous discourse as the probability of drawing a recurrence time at least that extreme from its bag words distribution. Figure \ref{fig:gleit-plot} shows a Gleitman plot of a segment of one parent-child interaction [@frank2013]. Each tile represents the occurrence of a reference in each utterance over time. The colors of the tiles show the probabilities assigned by this bag of referents that these occurrences are new discourse bursts.
+The bag of referents model then serves as a null model: Discourse bursts are very low probability events, as they consist of a run of short recurrence times. We thus define the probability of an event being part of previous discourse as the probability of drawing a recurrence time at least that extreme from its bag words distribution. Figure \ref{fig:gleit-plot} shows a Gleitman plot of a segment of one parent-child interaction [@frank2013]. Each tile represents the occurrence of a reference in each utterance over time. The colors of the tiles show the probabilities assigned by this bag of referents that these occurrences are new discourse bursts.
 
 ```{r burstiness, cache = T}
 indiv_freqs <- coded_responses %>%
@@ -352,7 +352,7 @@ lags <- coded_responses %>%
          new_discourse = if_else(is.na(new_discourse), 1, new_discourse))
 ```
 
-Because referents that have occurred recently should be easier to retrieve, the race model predicts that referents within a discourse burst should have faster drift rates and consequently come out in speech than if they were retrieved for the first time to begin a discourse burst. We test this prediction by adding the new discourse burst probability from the bag of words model to our previous mixed-effects model predicting the probability that a child's reference will use the speech modality \ref{tab:lag-table}. Both frequency and age remained highly significant predictors, as did their interaction. In addition, referents starting a new discourse burst were reliably less likely to be produced in speech, and this effect interacted with both frequency and age: Discourse novelty lead to gesture particularly for infrequent referents and for younger children. The three-way interaction was mot significant and did not improve model fit.
+Because referents that have occurred recently should be easier to retrieve, the race model predicts that referents within a discourse burst should have faster drift rates and consequently come out in speech than if they were retrieved for the first time to begin a discourse burst. We test this prediction by adding the new discourse burst probability from the bag of words model to our previous mixed-effects model predicting the probability that a child's reference will use the speech modality \ref{tab:lag-table}. Both frequency and age remained highly significant predictors, as did their interaction. In addition, referents starting a new discourse burst were reliably less likely to be produced in speech, and this effect interacted with both frequency and age: Discourse novelty lead to gesture particularly for infrequent referents and for younger children. The three-way interaction was not significant and did not improve model fit.
 
 
 ```{r gleit-plot, fig.env = "figure", fig.align = "center", fig.height = 1.75, fig.width = 3.5, fig.cap ="A Gleitman plot of a slice of parent-child interaction. Tiles show which objects are referents of each utterance. Tile color shows predicted probability of being a new discourse topic under the bag of referents model", cache = T}
@@ -383,7 +383,7 @@ ggplot(sub_lags, aes(x = as.numeric(time), y = referent)) +
 lag_model <- glmer(cbind(modality != "gesture", modality== "gesture") ~ 
                           log(freq) * scale(age) + 
                      new_discourse*log(freq) +  new_discourse*scale(age)+
-                     (scale(age)|subj),
+                     (scale(age)|subj) + (1|referent),
                    control = glmerControl(optimizer = "bobyqa"),
                         family = "binomial", 
                    data = filter(lags, person == "child", 
@@ -398,15 +398,34 @@ lag_table <- tidy_table(lag_model) %>%
            regression predicting probability of prodution in speech for a
            referential event. The model was specified as \\texttt{speech
            $\\sim$ log(freq) * scale(age) +  new\\_discourse * log(freq) +
-           new\\_discourse * scale(age) + (scale(age)|subj)}",
+           new\\_discourse * scale(age) + (scale(age)|subj) + (1|referent)}",
            label = "tab:lag-table")
 
 print(lag_table, type = "latex", comment = F, table.placement = "tb",
       include.rownames = FALSE)
-
-
 ```
 
+
+```{r, eval = F}
+sub_lag_refs <- sub_data %>% 
+  ungroup() %>%
+  distinct(age, subj, referent) %>%
+  unite(identifier, age, subj, referent, sep = "-") %>%
+  pull()
+
+sub_lag_data <- lags %>%
+  unite(identifier, age, subj, referent, sep = "-") %>%
+  filter(identifier %in% sub_lag_refs) %>%
+  separate(identifier, c("age", "subj", "referent"), sep = "-") %>%
+  mutate(age = as.numeric(age))
+
+sub_lag_model <- glmer(cbind(modality != "gesture", modality== "gesture") ~ 
+                          log(freq) * scale(age) + new_discourse +
+                     (scale(age)|subj) + (1|referent),
+                       family = "binomial",
+                   data = filter(sub_lag_data, person == "child", 
+                                 ref_predicted == "1"))
+```
 
 # Discussion
 
@@ -417,12 +436,11 @@ print(lag_table, type = "latex", comment = F, table.placement = "tb",
 <!-- The goal of this work is to begin building a bridge between these two different ways in which children can communicate with conversational partners; to take a step in the direction of a generative model of children's referential productions. The primary target of interest will be predicting--for a given referential event--whether children are likely to use language, or are instead more likely to point or use another deictic gesture.  -->
 
 
-Young children are inundated with language, hearing on the order of 30 million words by the time they are four years old [@hart1995]. From the statistical relationships within and among these words, children must discover the latent structures that allow them to become fluent speakers of their native language. Some of these words will be overheard, addressed by one parent to another or a sibling to a friend. However, some will be directed to the child, and these child-directed words maybe be particularly supportive of learning [@weisleder2013]. Child-directed speech is not merely a corpus of well-formed language; It is contingent on the child's own attention, interests, and prior knowledge, and thus can be directed *by the child themself*.
-
+Young children are inundated with language, hearing on the order of 30 million words by the time they are four years old [@hart1995]. From the statistical relationships within and among these words, children must discover the latent structures that allow them to become fluent speakers of their native language. Some of these words will be overheard, addressed by one parent to another or a sibling to a friend. However, some will be directed to the child, and these child-directed words maybe be particularly supportive of learning [@shneidman2012;@weisleder2013]. Child-directed speech is not merely a corpus of well-formed language; It is contingent on the child's own attention, interests, and prior knowledge, and thus can be directed *by the child themself*.
 
 Young children are notorious for asking questions "why?" In her analysis of 5 children from the Brown and Kuczaj corpora in CHILDES, @chouinard2007 reports children asking over 100 questions per hour they interaction with adults over the 2-5 year range. These questions are powerful because they allow children to learn about two important things simultaneously: The causal relationships in the world around them, and also about the structure of language itself. By driving the discourse into predictable areas of content, they can reduce referential ambiguity in learning new language for this content.
 
-Long before they can explicitly direct their input with wh-questions, children can sometimes achieve a similar outcome simply by referring to objects in their environment. Having observed a referential event, parents will often follow-in with expansions and additional information about the child's target of interest [@clark2014]
+Long before they can explicitly direct their input with wh-questions, children can sometimes achieve a similar outcome simply by referring to objects in their environment. Having observed a referential event, parents will often follow-in with expansions and additional information about the child's target of interest [@clark2014;@goldin-meadow2007]
 
 \vspace{1em} \fbox{\parbox[b][][c]{7.3cm}{\centering All code for these analyses are available at\ \url{https://github.com/dyurovsky/gesture}}} \vspace{1em}
 
