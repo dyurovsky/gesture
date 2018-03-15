@@ -319,31 +319,33 @@ diff_logit <- glmer(new_topic ~ log(freq) + age + (1|subj),
                    family = "binomial", data = intervals)
 ```
 
-##Similarity Judgments
-Along with our attempts to divide discourse up into topics, we can look at referent similarity as a measure of whether it is in the same topic or not. 
-```{r}
-MEN_data<-read.table("MEN_dataset_lemma_form_full") 
-
-ref_list <- sapply(1:nrow(MEN_data),function(x) paste0("referent",x))
-
-similarity_data<-MEN_data %>%
-  separate(V1, sep="-", ref_list, fill="right") %>%
-  gather_("number", "V1", ref_list) %>%
-  separate(V2, sep="-", ref_list, fill="right") %>%
-  gather("number2", "V2", ref_list) %>%
-  mutate(number= NULL, number2=NULL) %>%
-  select(V1, V2, V3)
-
-similarity<-referents %>%
-  mutate(match= ifelse(referent %in% similarity_data$V1 | referent %in% similarity_data$V2, "Match", "No Match"))
-
-sum(similarity$match=="No Match")
-```
-
-Unfortunately, this similarity data set only includes 350/1500 referents, so it is probably not the best computational comparison to use.
-
-##Gleitman Plots
+##Gleitman Plots & Similarity Judgments 
 A way of representing how referents shift during a conversation.
+
+It is surprising that so many of the referents fit into these neat packs 
+```{r similarity word packs}
+#made for subjects 33, 103 
+food_words<- c("pepper","strawberry","knife","egg", "pot", "lid","refrigerator", "eggplant", "kiwi", "fork","cup","apple","casserole","lemon","green_bean", "mustard","onion","carrot","soup", "food", "juice", "spoon", "plate", "orange", "popsicle", "cookie", "ice_cream", "milk", "roast", "meat", "plum", "yogurt", "hash_brown", "grape", "hamburger", "pickle", "candy", "soda", "cheese", "turkey", "chocolate", "cheeto", "cereal", "chip", "milk", "shortcake", "jellybean", "coffee", "tea", "sugar", "cheerio", "spatula", "frying_pan", "fry", "milk", "toast", "blueberry", "banana", "potpourri", "ketchup", "cookie_cutter", "oven_mitt", "fridge", "fruit", "bacon", "waffle", "tomato", "teapot", "toaster", "ice_pop", "vanilla", "watermelon", "fruit_snack")
+
+animal_words<-c("pig", "cow", "fish", "horse", "turtle", "duck", "farm", "mouse", "teddy_bear", "peacock", "monkey", "dog", "cat", "bear", "ladybug", "alligator", "toucan", "rabbit", "bug", "cow", "octopus", "wolf", "bird", "giraffe", "tail", "gorilla", "orangutan", "flamingo", "dinosaur", "lion", "elephant", "animal", "walrus", "penguin", "frog", "spider", "bee", "unicorn", "weasel", "zebra", "bunny",  "tiger", "camel", "squirrel", "rooster")
+
+baby_words<-c("baby", "cradle", "stroller", "bottle", "rattle", "diaper", "bib", "pacifier")
+
+body_words<-c("eye", "hand", "foot", "arm", "back", "face", "mouth", "tooth", "leg", "body", "nose", "neck", "knee", "head", "finger", "stomach", "hair", "hip", "cheek", "thumb", "belly_button", "toe", "butt", "shoulder")
+
+#probably abstract (low burstiness) words? in this basic category below. From graphs it seems like not!
+basic_words<-c("circle", "ground",  "square", "triangle", "button", "book", "floor", "hole",  "box", "shape", "top", "bottom")
+
+home_words<-c("tv", "couch", "door", "bed", "garbage", "phone", "kitchen", "remote", "vacuum", "towel", "bathroom", "room", "bedroom", "wall", "mop", "potty", "toothpaste", "bathtub", "table", "fireplace", "shelf", "key", "sink", "basement", "dining_room", "blanket", "window", "cupboard", "coathanger", "toilet", "mousepad", "tv", "radio", "tissue", "trash", "light", "paper_towel", "house", "clothesline", "receipt", "roof", "pillow", "chimney")
+
+toy_words<-c("truck", "doll", "jumprope", "toy", "toybox", "puzzle", "puzzle_piece", "draw_board", "slide", "stencil", "block", "crayon", "bubble", "paper", "card", "marker", "train", "rubber_duck", "hammer", "ball", "railroad_track", "jackinthebox", "tower", "castle", "pooh", "water_gun", "pinata", "balloon", "bubble_wand", "bucket", "playpen", "elmo")
+
+people_words<-c("boy", "mom", "dad", "sister", "brother", "grandmother", "grandfather", "aunt", "uncle", "child", "teacher", "girl", "great_aunt", "zookeeper_wife", "cousin", "kid", "man")
+
+clothes_words<-c("belt", "shorts", "shirt", "hat", "glasses", "sunglasses", "sock", "slipper", "boot", "pants", "watch", "gown", "sweater", "dress", "necklace", "pocket", "hood", "sneaker", "shoe", "coat")
+
+nature_words<-c("tree", "flower", "windmill", "grass", "wing", "butterfly", "thunder", "lightning", "watering_can", "iris", "stick", "plant", "worm", "snail", "pond")
+```
 
 ```{r}
 runs <- coded_responses %>%
@@ -383,22 +385,10 @@ ggplot(gleit_ordered, aes(x = as.factor(time), y = referent, fill=topic)) +
   scale_x_discrete(breaks= c(seq(from = 1, to = 1000, by = 10)))
 ```
 
-It is surprising that so many of the referents fit into these neat packs 
-```{r similarity word packs}
-#made for subjects 33, 103 
-food_words<- c("pepper","strawberry","knife","egg", "pot", "lid","refrigerator", "eggplant", "kiwi", "fork","cup","apple","casserole","lemon","green_bean", "mustard","onion","carrot","soup", "food", "juice", "spoon", "plate", "orange", "popsicle", "cookie", "ice_cream", "milk", "roast", "meat", "plum", "yogurt", "hash_brown", "grape", "hamburger", "pickle", "candy", "soda", "cheese", "turkey", "chocolate", "cheeto", "cereal", "chip", "milk", "shortcake", "jellybean", "coffee", "tea", "sugar", "cheerio", "spatula", "frying_pan", "fry", "milk", "toast", "blueberry", "banana", "potpourri", "ketchup", "cookie_cutter", "oven_mitt", "fridge", "fruit", "bacon", "waffle", "tomato", "teapot", "toaster", "ice_pop", "vanilla", "watermelon", "fruit_snack")
-animal_words<-c("pig", "cow", "fish", "horse", "turtle", "duck", "farm", "mouse", "teddy_bear", "peacock", "monkey", "dog", "cat", "bear", "ladybug", "alligator", "toucan", "rabbit", "bug", "cow", "octopus", "wolf", "bird", "giraffe", "tail", "gorilla", "orangutan", "flamingo", "dinosaur", "lion", "elephant", "animal", "walrus", "penguin", "frog", "spider", "bee", "unicorn", "weasel", "zebra", "bunny",  "tiger", "camel", "squirrel", "rooster")
-baby_words<-c("baby", "cradle", "stroller", "bottle", "rattle", "diaper", "bib", "pacifier")
-body_words<-c("eye", "hand", "foot", "arm", "back", "face", "mouth", "tooth", "leg", "body", "nose", "neck", "knee", "head", "finger", "stomach", "hair", "hip", "cheek", "thumb", "belly_button", "toe", "butt", "shoulder")
-basic_words<-c("bag", "chair", "school", "circle", "car", "ground", "bus", "man", "tree", "square", "triangle", "pen", "button", "book", "floor", "water", "hole", "tree", "box", "shape", "top", "bottom")
-home_words<-c("tv", "couch", "door", "bed", "garbage", "phone", "kitchen", "remote", "vacuum", "towel", "bathroom", "room", "bedroom", "wall", "mop", "potty", "toothpaste", "bathtub", "table", "fireplace", "shelf", "key", "sink", "basement", "dining_room", "blanket", "window", "cupboard", "coathanger", "toilet", "mousepad", "tv", "radio", "tissue", "trash", "light", "paper_towel", "house", "clothesline", "receipt", "roof", "pillow", "chimney")
-toy_words<-c("truck", "doll", "jumprope", "toy", "toybox", "puzzle", "puzzle_piece", "draw_board", "slide", "stencil", "block", "crayon", "bubble", "paper", "card", "marker", "train", "rubber_duck", "hammer", "ball", "railroad_track", "jackinthebox", "tower", "castle", "pooh", "water_gun", "pinata", "balloon", "bubble_wand", "bucket", "playpen", "elmo")
-people_words<-c("boy", "mom", "dad", "sister", "brother", "grandmother", "grandfather", "aunt", "uncle", "child", "teacher", "girl", "great_aunt", "zookeeper_wife", "cousin", "kid")
-clothes_words<-c("belt", "shorts", "shirt", "hat", "glasses", "sunglasses", "sock", "slipper", "boot", "pants", "watch", "gown", "sweater", "dress", "necklace", "pocket", "hood", "sneaker", "shoe", "coat")
-nature_words<-c("tree", "flower", "windmill", "grass", "wing", "butterfly", "thunder", "lightning", "watering_can", "iris", "stick", "plant", "worm", "snail", "pond")
-```
+Here, we do the same computation for topics as categories as we did for referents, where we arbitrarily decide the burstiness of a topic (if it is mentioned after n times) and then fill in the gaps to see how topics shift. Some topics here seem pretty bursty (ex. food, animal), and others do not seem bursty (ex. person). Overall, kids seem to topic shift a lot! 
 
-```{r calculating topic switches}
+```{r calculating topic switches} 
+##BROKEN!
 topic_runs <- coded_responses %>%
   mutate(topic = ifelse(referent %in% food_words,  "Food", ifelse(referent %in% animal_words, "Animal", ifelse(referent %in% body_words, "Body", ifelse(referent %in% basic_words, "Basic", ifelse(referent %in% baby_words, "Baby", ifelse(referent %in% home_words, "Home", ifelse(referent %in% toy_words, "Toy", ifelse(referent %in% people_words, "Person", ifelse(referent %in% clothes_words, "Clothes", ifelse(referent %in% nature_words, "Nature", "Other"))))))))))) %>%
   select(subj, age, referent, time, topic) %>% #person data not included here, include?
@@ -416,7 +406,7 @@ fixed_topic_runs <- map(1:100, function(row) {
   bind_rows() %>%
   bind_rows(topic_runs)
 
-topic_gleit_order <- topic_gleit %>%
+topic_gleit_order <- topic_runs %>%
   filter(subj==33, age==14) %>%
   ungroup() %>%
   group_by(topic) %>%
@@ -424,7 +414,7 @@ topic_gleit_order <- topic_gleit %>%
   slice(1) %>%
   arrange(time) 
 
-topic_gleit_ordered <- topic_gleit %>%
+topic_gleit_ordered <- topic_runs %>%
   mutate(topic = factor(topic, levels = topic_gleit_order$topic))
 
 #topics are all over the place!  
@@ -434,11 +424,12 @@ ggplot(topic_gleit_ordered, aes(x = as.factor(time), y = topic)) +
   scale_x_discrete(breaks= c(seq(from = 1, to = 1000, by = 10)))
 ```
 
+Provides general information about frequency of different topics by age. 
 ```{r topic trends}
 topic2<- fixed_topic_runs %>%
   filter(subj==103| subj==33)
 
-ggplot(topic2, aes(x=topic, label=topic, fill=topic))+
+ggplot(topic2, aes(x=topic, label=topic, fill=topic))+ #colors correspond to bottom labels 
   geom_bar(position="dodge")+
   facet_grid(subj~age)+
   theme(legend.position="bottom")

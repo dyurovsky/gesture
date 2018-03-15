@@ -62,7 +62,7 @@ concrete<-read_tsv("Concreteness_ratings_Brysbaert_et_al_BRM.txt") %>%
 concrete_match <-referents %>%
   mutate(match = if_else(referent %in% concrete$referent,"Match", "No Match"))
 
-sum(concrete_match$match=="No Match")
+sum(concrete_match$match=="Match")
 #This concreteness measure is going to be very helpful--it contains 1,266 referents from the data set and only 325 are not included
 #the referents not included seem to be obscure things (taquito, spongebob, digger_truck, rice_krispie, grilled_cheese, cheeto, etc.)
 ```

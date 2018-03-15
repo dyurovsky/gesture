@@ -209,7 +209,7 @@ coded_responses <- spread_referents %>%
 write_feather(coded_responses, "feathers/coded_responses.feather")
 
 modality_data <- coded_responses %>%
-  filter(ref_predicted!="1") %>%
+  filter(ref_predicted=="1") %>%
   group_by(person, age, subj, freq_cut, rank, freq, referent, modality, chat) %>%
   summarise(n = n()) %>%
   spread(modality, n, fill = 0)

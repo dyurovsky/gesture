@@ -1,0 +1,349 @@
+---
+title: "Discourse project summary"
+author: "Maddie Meyers, Dan Yurovsky"
+date: "3/15/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(tidyverse)
+library(tidyboot)
+library(stringr) 
+library(lme4)
+library(directlabels)
+library(DT)
+library(broom)
+library(data.table)
+library(ggplot2)
+library(forcats)
+library(feather)
+
+opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
+               error = FALSE, cache = TRUE, tidy = FALSE)
+
+theme_dy <- function(base_size = 14) 
+{
+  theme_bw() +   
+  ggplot2::`%+replace%`(ggplot2::theme_bw(base_size = base_size),
+                          ggplot2::theme(panel.grid = ggplot2::element_blank(), 
+        legend.position = "none"))
+}
+
+theme_set(theme_dy())
+```
+
+## Setup/Description
+
+This is a summary of the work we have done so far (as of 3/15/18) for the discourse/burstiness/speech-gesture tradeoff LDP corpus analysis project. This file does not include measures of inter-rater or intra-rater reliability (see separate files).
+
+```{r load data}
+#full data set (including uncoded utterances)
+loaded_subjs<-read_feather('feathers/loaded_subjs_full.feather')
+#referents and their frequencies
+referents <- read_feather("feathers/referents.feather")
+#coded utterances only, split for each individual referent
+coded_responses <- read_feather("feathers/coded_responses.feather")
+```
+
+Number of children in this set of data [excluding those 2nd-wave kids], number of utterances and number of refs
+```{r descriptive}
+# Number of kid files per age in months
+demos <- loaded_subjs %>%
+  select(subj,age) %>%
+  distinct(subj,age, .keep_all = TRUE) %>%
+  group_by(age) %>%
+  summarise(n = n())
+
+datatable(demos, rownames = FALSE, options = list(searching = FALSE), width = 300)
+## Referents and their frequencies
+datatable(referents, rownames = FALSE, width = 600)
+# Number of total referents in dataset
+sum(referents$freq)
+```
+
+There is also a plot of referent frequencies (used in cogsci paper) found in gesture_analysis. It is also compared to a standard Zipfian distribution as well as the CHILDES distribution. The LDP distribution looks similar to the CHILDES distribution, both of which are approximately, but not exactly, Zipfian. 
+
+## Gesture Analysis 
+Main speech/gesture tradeoff: the plot included in cogsci filters to only children, but this is both parents and kids and also includes label-pointing. 
+```{r tradeoff plot, fig.env = "figure", fig.align = "center", fig.height = 5, fig.width = 8, fig.cap ="Probability of referential events being expressed in speech (blue) vs. gesture (red) as a function of frequency and children's age. For ease of visualization, referents were divided into four quartiles (1-most frequent). Points show group averaed proportions, error bars show 95\\% confidence intervals computed by non-parametric bootrstrap", cache = T}
+plotting_data <- coded_responses %>%
+  filter(ref_predicted == "1") %>% #filters out referents that are not present in the environment
+  group_by(person, age, subj, freq_cut, modality) %>%
+  summarise(n = n()) %>%
+  mutate(prob = n/sum(n)) %>%
+  group_by(person, age, modality, freq_cut) %>%
+  tidyboot_mean(prob)
+
+ggplot(plotting_data, aes(x = as.numeric(freq_cut), y = mean, color = modality,
+                          label = modality)) +
+  geom_line()+
+  facet_grid(person ~ age) + 
+  geom_pointrange(aes(ymax = ci_upper, ymin = ci_lower), 
+                 position = position_dodge(.25)) + 
+  scale_color_brewer(palette = "Set1") +
+  geom_dl(method = list(dl.trans(x=x +.2), "last.qp", cex=1)) +
+  scale_x_continuous(limits = c(.5, 5.7),
+                     breaks = seq(1, 4),
+                     name = "Frequency Quartile") +
+  ylab("Production Probability")
+```
+
+Regression model used in cogsci (excludes parents) 
+```{r cogsci model}
+tradeoff_model <- glmer(cbind(modality != "gesture", modality== "gesture") ~ 
+                          log(freq) * scale(age) + (scale(age)|subj) + (1|referent),
+                        family = "binomial", data = (coded_responses %>%
+  filter(ref_predicted == "1", person == "child")))
+```
+
+Original regression model for parents (old)
+```{r original models}
+tidy_table <- function(mermod) {
+  tidy(mermod) %>%
+    filter(group == "fixed") %>%
+    select(-group)
+}
+
+modality_data <- coded_responses %>%
+  filter(ref_predicted=="1") %>%
+  group_by(person, age, subj, freq_cut, rank, freq, referent, modality, chat) %>%
+  summarise(n = n()) %>%
+  spread(modality, n, fill = 0)
+
+parent_lm <- glmer(cbind(speech, gesture) ~ age + log(freq) + 
+                    (1|referent) + (1|subj), 
+      data = filter(modality_data, person == "parent"),
+      family = "binomial")
+
+datatable(tidy_table(parent_lm), rownames = FALSE, 
+          options = list(searching = FALSE), width = 400)
+```
+
+## Concreteness
+One potential confound we looked at that didn't get into the cogsci paper was concreteness. The idea is that people point to things because they are more concrete, not because they are easier to retrieve in memory. However, we don't see that when we apply concreteness ratings from the words in our dataset (ratings from Brysbaert et al., 2014). The concreteness measure used had ratings for 1214/1548, or 78% of referents. Most things are very concrete.
+
+```{r concreteness description}
+concrete<-read_tsv("Concreteness_ratings_Brysbaert_et_al_BRM.txt") %>%
+  filter(Bigram==0) %>% #take out two-word phrases
+  rename(referent = Word)
+
+concrete_data <- referents %>%
+  inner_join(concrete, by="referent")
+
+ggplot(concrete_data, aes(x=log(freq), y=Conc.M))+
+  geom_point() +
+  geom_smooth()
+```
+
+The model below is fairly difficult to reason about, but it seems to work against our hypothesis. 
+
+```{r concreteness model}
+modality_concrete<-coded_responses %>%
+  inner_join(concrete, by="referent") %>%
+  mutate(modality = factor(modality, 
+                           levels = c("speech", "gesture", "both")))
+fit <- glmer(cbind(modality == "speech", 
+                 modality == "gesture") 
+             ~ log(freq) * Conc.M + log(freq) * scale(age) +
+              + (1|referent) + (1|subj), 
+           data = filter(modality_concrete, person == "child"),
+           family = "binomial")
+datatable(tidy_table(fit), rownames = FALSE, 
+          options = list(searching = FALSE), width = 400)
+```
+
+The plot below shows speech probability by concreteness. The different plots correspond to different log frequency bins. 
+```{r concreteness plot}
+plot_data_2 <- modality_concrete %>%
+  filter(person == "child") %>%
+  mutate(conc_bin=cut(Conc.M, 6)) %>%
+  group_by(conc_bin, freq) %>%
+  summarise(speech_prob = mean(modality == "speech")) 
+
+
+ggplot(plot_data_2, aes(x = log(freq), y = speech_prob)) +
+  facet_wrap(~ conc_bin) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme_classic()
+```
+
+## Referent Presentness
+Whether the referent is physically pointable in the environment is another important factor to take into account. There don't seem to be major differences between which referents are present and which are not present (anecdotally). However, there is an age by person effect, where parents talk about more things that are not present as children get older. Additionally, kids seem to be pretty similar in the numbers of present/non-present things that they talk about (comparing means). See referent_presentness file. 
+
+```{r presentness_age_person}
+presentness <- coded_responses %>%
+  mutate(ref_predicted = as.numeric(ref_predicted))
+
+present_lm <- glmer(ref_predicted ~ scale(age) * person + (person|subj), 
+       family = "binomial", 
+       data = presentness)
+
+datatable(tidy_table(present_lm), rownames = FALSE, 
+          options = list(searching = FALSE), width = 400)
+```
+
+## Discourse Analysis
+This plot just looks at what proportion of referents are introduced for the first (or not first) time in the discourse (session) by each person (child or parent). This plot was what started some of the interest in studying discourse and topics. Looking at only the first time a referent was used in a given session is a very bad proxy for introducing a new topic. 
+
+```{r first mention modality plot}
+first_data <- coded_responses %>%
+  group_by(subj, age, referent) %>%
+  slice(1) %>% 
+  mutate(first = TRUE) 
+
+not_first_data <- coded_responses %>%
+  group_by(subj, age, referent) %>%
+  slice(2:nrow(.)) %>% 
+  mutate(first = FALSE)
+
+usage_data <- bind_rows(first_data, not_first_data) %>%
+  filter(freq>1) %>% #taking out referents that are only mentioned once changes nothing
+  group_by(subj, age, person, modality, first) %>%
+  summarise(n = n()) %>% 
+  group_by(age, subj, person, first) %>%
+  mutate(n = n/sum(n)) %>% #probability
+  group_by(age, person, modality, first) %>%
+  tidyboot_mean(n) 
+
+#Plot
+ggplot(usage_data, aes(x = age, y = mean, color = modality,
+                       linetype = first)) + 
+  facet_wrap(~ person) + 
+  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper), 
+                  size=.75, position = position_dodge(1),
+                  show.legend = FALSE)+
+  geom_line() +   
+  theme(legend.position= "bottom") + 
+  ylab("proportion of utterances") 
+```
+
+We looked at some other measures of "topic" switching, including looking line by line at whether referents were repeated or changed (and the interaction with modality there), and sampling some referents from the data set. However, none of these efforts really grasped "discourse" or topics. 
+
+## Burstiness
+Below is the burstiness model/plot included in the cogsci paper. We define the probability of an event being part of a previous discourse as the probability of drawing a recurrence time at least that short for it from the bag of words model. There is a lot of information in the burstiness.rmd, it is unclear how much of it is useful. 
+
+```{r burstiness_setup}
+indiv_freqs <- coded_responses %>%
+  group_by(subj, age, referent) %>%
+  summarise(indiv_freq = n()) %>%
+  mutate(total_refs = sum(indiv_freq))
+  
+lags <- coded_responses %>%
+  mutate(time2 = as.numeric(time2)) %>%
+  arrange(subj, age, time2) %>%
+  group_by(subj, age, referent) %>%
+  mutate(time2 = as.numeric(time2),
+         diff = time2 - lag(time2)) %>%
+  left_join(indiv_freqs) %>%
+  group_by(subj, age) %>%
+  mutate(freq_prob = indiv_freq / total_refs,
+         predicted = total_refs / indiv_freq,
+         new_discourse = pexp(diff, freq_prob, lower.tail = T),
+         new_discourse = if_else(is.na(new_discourse), 1, new_discourse))
+```
+
+```{r burstiness plot}
+sub_lags <- lags %>%
+  ungroup() %>% 
+  slice(2480:2515) %>%
+  mutate(referent = factor(referent, levels = rev(unique(referent))))
+
+ggplot(sub_lags, aes(x = as.numeric(time), y = referent)) + 
+  geom_tile(aes(fill = new_discourse), color = "white") + 
+  scale_fill_gradient(low = "lightgray", high = "red",
+                      guide = guide_colorbar(title = "P(new)",
+                                             title.position = "left",
+                                             barwidth = 1,
+                                             barheight = 2.6),
+                      limits = c(0, 1),
+                      breaks = c(0, .5, 1),
+                      labels = c("0", ".5", "1"))+
+  scale_x_continuous(name = "Utterance number") +
+  scale_y_discrete(name = element_blank()) +
+  theme(legend.position = c(.15,.3), legend.direction = "vertical",
+        legend.title.align = .5,
+        legend.title = element_text(size = 8, angle = 90))
+```
+
+```{r burstiness model}
+lag_model <- glmer(cbind(modality != "gesture", modality== "gesture") ~ 
+                          log(freq) * scale(age) + 
+                     new_discourse*log(freq) +  new_discourse*scale(age)+
+                     (scale(age)|subj) + (1|referent),
+                   control = glmerControl(optimizer = "bobyqa"),
+                        family = "binomial", 
+                   data = filter(lags, person == "child", 
+                                 ref_predicted == "1"))
+
+datatable(tidy_table(lag_model), rownames = FALSE, 
+          options = list(searching = FALSE), width = 400)
+
+```
+
+## Topics
+~Talk about the work that Ben did~
+Here is some manual coding of subject topics that sparked our interest in looking at them:
+```{r manual_topic codes}
+#made for subjects 33, 103 
+food_words<- c("pepper","strawberry","knife","egg", "pot", "lid","refrigerator", "eggplant", "kiwi", "fork","cup","apple","casserole","lemon","green_bean", "mustard","onion","carrot","soup", "food", "juice", "spoon", "plate", "orange", "popsicle", "cookie", "ice_cream", "milk", "roast", "meat", "plum", "yogurt", "hash_brown", "grape", "hamburger", "pickle", "candy", "soda", "cheese", "turkey", "chocolate", "cheeto", "cereal", "chip", "milk", "shortcake", "jellybean", "coffee", "tea", "sugar", "cheerio", "spatula", "frying_pan", "fry", "milk", "toast", "blueberry", "banana", "potpourri", "ketchup", "cookie_cutter", "oven_mitt", "fridge", "fruit", "bacon", "waffle", "tomato", "teapot", "toaster", "ice_pop", "vanilla", "watermelon", "fruit_snack")
+animal_words<-c("pig", "cow", "fish", "horse", "turtle", "duck", "farm", "mouse", "teddy_bear", "peacock", "monkey", "dog", "cat", "bear", "ladybug", "alligator", "toucan", "rabbit", "bug", "cow", "octopus", "wolf", "bird", "giraffe", "tail", "gorilla", "orangutan", "flamingo", "dinosaur", "lion", "elephant", "animal", "walrus", "penguin", "frog", "spider", "bee", "unicorn", "weasel", "zebra", "bunny",  "tiger", "camel", "squirrel", "rooster")
+baby_words<-c("baby", "cradle", "stroller", "bottle", "rattle", "diaper", "bib", "pacifier")
+body_words<-c("eye", "hand", "foot", "arm", "back", "face", "mouth", "tooth", "leg", "body", "nose", "neck", "knee", "head", "finger", "stomach", "hair", "hip", "cheek", "thumb", "belly_button", "toe", "butt", "shoulder")
+#probably abstract (low burstiness) words? in this basic category below. From graphs it seems like not!
+basic_words<-c("circle", "ground",  "square", "triangle", "button", "book", "floor", "hole",  "box", "shape", "top", "bottom")
+home_words<-c("tv", "couch", "door", "bed", "garbage", "phone", "kitchen", "remote", "vacuum", "towel", "bathroom", "room", "bedroom", "wall", "mop", "potty", "toothpaste", "bathtub", "table", "fireplace", "shelf", "key", "sink", "basement", "dining_room", "blanket", "window", "cupboard", "coathanger", "toilet", "mousepad", "tv", "radio", "tissue", "trash", "light", "paper_towel", "house", "clothesline", "receipt", "roof", "pillow", "chimney")
+toy_words<-c("truck", "doll", "jumprope", "toy", "toybox", "puzzle", "puzzle_piece", "draw_board", "slide", "stencil", "block", "crayon", "bubble", "paper", "card", "marker", "train", "rubber_duck", "hammer", "ball", "railroad_track", "jackinthebox", "tower", "castle", "pooh", "water_gun", "pinata", "balloon", "bubble_wand", "bucket", "playpen", "elmo")
+people_words<-c("boy", "mom", "dad", "sister", "brother", "grandmother", "grandfather", "aunt", "uncle", "child", "teacher", "girl", "great_aunt", "zookeeper_wife", "cousin", "kid", "man")
+clothes_words<-c("belt", "shorts", "shirt", "hat", "glasses", "sunglasses", "sock", "slipper", "boot", "pants", "watch", "gown", "sweater", "dress", "necklace", "pocket", "hood", "sneaker", "shoe", "coat")
+nature_words<-c("tree", "flower", "windmill", "grass", "wing", "butterfly", "thunder", "lightning", "watering_can", "iris", "stick", "plant", "worm", "snail", "pond")
+
+runs <- coded_responses %>%
+  select(subj, age, referent, time) %>%
+  arrange(subj, age, referent, time) %>%
+  group_by(subj, age, referent) %>%
+  mutate(diff = time-lag(time)) %>%
+  filter(diff < 10 & diff > 1)
+
+fixed_runs <- map(1:100, function(row) {
+  times <- 1:(runs[row,]$diff-1) + runs[row,]$time
+  
+  data_frame(time = times, subj = runs[row,]$subj, age = runs[row,]$age, 
+             referent = runs[row,]$referent)}) %>%
+  bind_rows() %>%
+  bind_rows(runs)
+
+gleit<-fixed_runs %>%
+  mutate(topic = ifelse(referent %in% food_words,  "Food", ifelse(referent %in% animal_words, "Animal", ifelse(referent %in% body_words, "Body", ifelse(referent %in% basic_words, "Basic", ifelse(referent %in% baby_words, "Baby", ifelse(referent %in% home_words, "Home", ifelse(referent %in% toy_words, "Toy", ifelse(referent %in% people_words, "Person", ifelse(referent %in% clothes_words, "Clothes", ifelse(referent %in% nature_words, "Nature", "Other"))))))))))) %>%
+  filter(subj==103, age==14)#arbitrary choice
+
+gleit_order <- gleit %>%
+  ungroup() %>%
+  group_by(referent) %>%
+  arrange(time) %>%
+  slice(1) %>%
+  arrange(time) 
+
+gleit_ordered <- gleit %>%
+  mutate(referent = factor(referent, levels = gleit_order$referent)) 
+
+ggplot(gleit_ordered, aes(x = as.factor(time), y = referent, fill=topic)) + 
+  geom_tile(color = "white", show.legend=TRUE) + 
+  theme_bw()+
+  scale_x_discrete(breaks= c(seq(from = 1, to = 1000, by = 10)))
+```
+
+## Things Left to Work on
+
+1.a) Increase reliability of presentness codes: have RA code more files manually
+  b) There are probably more interesting questions we can ask involving presentness: how does this feature interact with the tradeoffs we have seen (ex. are parents more likely to talk about something present/not present? age interaction?)? With topic switching? With who introduces what? How does the number of referents that are present in the environment change with age (ex. kids talk about more abstract things when they are older so fewer refs are present over time)? First we need to make sure this measure is reliable. 
+  c) Can we understand more about how children and parents gesture to objects that are not present? In this data, any object that was gestured to (as determined by original transcriber) was coded as present
+2. Do we want to look more into gestures: the type of gestures produced or the form of these gestures? Do we have any particular hypotheses about what we would find?
+3. Does something being introduced or mentioned in one modality increase the likelihood of it being introduced again? Are things in gesture "ignored" more often than things in speech? 
+4. We have coded 5 kids (not presentness) for the next set of data (goal was 10 kids, for a total of 20)
+5. In the cogsci paper, we did not talk about parents very much. Do we want to? If so, how do we want to involve them? Talk about potential parent differences over development?
+6. Integrate what we think is going on when objects are label-pointed
+7. Look more at burstiness and calculate a specific parameter (see Pierrehumbert 2012)
+
+
